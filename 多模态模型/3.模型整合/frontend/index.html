@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>多模态网络金融舆情风险监测系统</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Multimodal Financial Opinion Risk Monitor</p>
+        <h1>多模态网络金融舆情风险监测系统</h1>
+        <p class="subtitle">融合微博正文、配图视觉信息与图片 OCR 文本，输出综合风险等级、融合网络评分和可解释证据。</p>
+      </div>
+      <div class="status-pill" id="healthStatus">系统自检中</div>
+    </header>
+
+    <section class="layout">
+      <form id="analysisForm" class="panel input-panel">
+        <div class="panel-title">
+          <span>01</span>
+          <h2>样本输入</h2>
+        </div>
+
+        <label class="field">
+          <span>微博正文</span>
+          <textarea id="postText" rows="10" placeholder="请输入需要检测的微博正文，例如：限时福利，扫码添加客服领取投资资料，内部渠道推荐高收益理财方案..."></textarea>
+        </label>
+
+        <label class="upload-box" for="imageInput">
+          <input id="imageInput" type="file" accept="image/*">
+          <div class="upload-copy">
+            <strong>上传微博配图</strong>
+            <span id="uploadHint">支持 jpg、jpeg、png、bmp、webp</span>
+          </div>
+          <img id="previewImage" alt="图片预览">
+        </label>
+
+        <button id="submitBtn" type="submit">
+          <span>运行风险监测</span>
+        </button>
+      </form>
+
+      <section class="panel result-panel">
+        <div class="panel-title">
+          <span>02</span>
+          <h2>模型分析结果</h2>
+        </div>
+
+        <div id="emptyState" class="empty-state">
+          <p>提交样本后，系统将展示综合风险分、模态分解、跨模态融合特征、融合网络输出层和关键证据。</p>
+        </div>
+
+        <div id="loadingState" class="loading-state hidden">
+          <div class="loader"></div>
+          <p>模型正在进行多模态特征提取与融合分析...</p>
+        </div>
+
+        <div id="resultContent" class="hidden">
+          <div class="score-grid">
+            <div>
+              <span>综合风险分</span>
+              <strong id="totalScore">--</strong>
+            </div>
+            <div>
+              <span>风险等级</span>
+              <strong id="riskLevel">--</strong>
+            </div>
+          </div>
+
+          <p id="conclusion" class="conclusion"></p>
+          <p id="suggestion" class="suggestion"></p>
+
+          <section class="result-block">
+            <h3>融合网络输出层</h3>
+            <div id="networkOutput" class="bars"></div>
+          </section>
+
+          <section class="result-block">
+            <h3>模态分解得分</h3>
+            <div id="modalityScores" class="chips"></div>
+          </section>
+
+          <section class="result-block">
+            <h3>跨模态融合特征</h3>
+            <div id="crossFeatures" class="feature-list"></div>
+          </section>
+
+          <section class="result-block">
+            <h3>关键证据</h3>
+            <ul id="reasons" class="reasons"></ul>
+          </section>
+
+          <section class="result-block">
+            <h3>模型组件状态</h3>
+            <div id="componentStatus" class="component-status"></div>
+          </section>
+
+          <details class="raw-json">
+            <summary>查看完整结构化结果</summary>
+            <pre id="rawJson"></pre>
+          </details>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script src="./app.js"></script>
+</body>
+</html>

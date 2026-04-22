@@ -1,0 +1,945 @@
+# -*- coding: utf-8 -*-
+"""
+金融情感5分类模型 - 修复版
+修复：forward函数中的损失计算问题
+"""
+
+import os
+
+os.environ['HF_HUB_DISABLE_SYMLINKS_WARNING'] = '1'
+os.environ['TRANSFORMERS_NO_ADVISORY_WARNINGS'] = '1'
+
+import torch
+import torch.nn as nn
+from transformers import BertTokenizer, BertModel, BertPreTrainedModel
+from torch.optim import AdamW
+from torch.utils.data import Dataset, DataLoader
+import numpy as np
+from tqdm import tqdm
+from sklearn.metrics import classification_report, f1_score
+import json
+
+
+# ====== 1. 定义5分类FinBERT模型（修复版）======
+class FinBERT5Class(BertPreTrainedModel):
+    def __init__(self, num_classes=5, freeze_bert_layers=6,
+                 model_name='hfl/chinese-roberta-wwm-ext', dropout=0.3):
+        super().__init__(BertPreTrainedModel.config_class.from_pretrained(model_name))
+
+        self.bert = BertModel.from_pretrained(model_name)
+        self.hidden_size = self.bert.config.hidden_size
+
+        # ✅ 修复：设置config.num_labels
+        self.config.num_labels = num_classes
+
+        self.dropout = nn.Dropout(dropout)
+        self.classifier = nn.Linear(self.hidden_size, num_classes)
+
+        self._freeze_bert_layers(freeze_bert_layers)
+        self._init_classifier()
+
+        print(f"✓ 模型初始化完成")
+        print(f"  - 预训练模型: {model_name}")
+        print(f"  - 分类数: {num_classes}")
+        print(f"  - 冻结层数: {freeze_bert_layers}")
+
+    def _freeze_bert_layers(self, freeze_layers):
+        if freeze_layers > 0:
+            for param in self.bert.embeddings.parameters():
+                param.requires_grad = False
+            for i in range(freeze_layers):
+                for param in self.bert.encoder.layer[i].parameters():
+                    param.requires_grad = False
+
+            trainable = sum(p.numel() for p in self.parameters() if p.requires_grad)
+            total = sum(p.numel() for p in self.parameters())
+            print(f"  - 可训练参数: {trainable:,} / {total:,} ({trainable / total * 100:.1f}%)")
+
+    def _init_classifier(self):
+        nn.init.xavier_normal_(self.classifier.weight)
+        nn.init.zeros_(self.classifier.bias)
+
+    def forward(self, input_ids, attention_mask, token_type_ids=None, labels=None):
+        outputs = self.bert(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            token_type_ids=token_type_ids
+        )
+
+        pooled_output = outputs.pooler_output
+        pooled_output = self.dropout(pooled_output)
+        logits = self.classifier(pooled_output)
+
+        loss = None
+        if labels is not None:
+            loss_fct = nn.CrossEntropyLoss()
+            # ✅ 修复：直接使用logits和labels
+            loss = loss_fct(logits, labels)
+
+        return {
+            'loss': loss,
+            'logits': logits,
+            'hidden_states': outputs.hidden_states
+        }
+
+
+# ====== 2. 数据集 ======
+class SentimentDataset(Dataset):
+    def __init__(self, texts, labels, tokenizer, max_len=128):
+        self.texts = texts
+        self.labels = labels
+        self.tokenizer = tokenizer
+        self.max_len = max_len
+
+    def __len__(self):
+        return len(self.texts)
+
+    def __getitem__(self, idx):
+        text = str(self.texts[idx])
+        label = self.labels[idx]
+
+        encoding = self.tokenizer(
+            text,
+            truncation=True,
+            padding='max_length',
+            max_length=self.max_len,
+            return_tensors='pt',
+            return_token_type_ids=True
+        )
+
+        return {
+            'input_ids': encoding['input_ids'].flatten(),
+            'attention_mask': encoding['attention_mask'].flatten(),
+            'token_type_ids': encoding['token_type_ids'].flatten(),
+            'label': torch.tensor(label, dtype=torch.long)
+        }
+
+
+# ====== 3. 训练函数 ======
+def train_finbert_5class(model, train_loader, val_loader, epochs=5, lr=2e-5,
+                         device=None, save_path='finbert_5class.pth'):
+    if device is None:
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    model.to(device)
+    optimizer = AdamW(filter(lambda p: p.requires_grad, model.parameters()), lr=lr)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs, eta_min=1e-6)
+
+    label_map = {
+        0: "中性",
+        1: "负面-恐慌/恶意唱空（高风险）",
+        2: "负面-理性担忧（低风险）",
+        3: "正面-理性看好（低风险）",
+        4: "正面-过度狂热（高风险）"
+    }
+
+    best_val_acc = 0
+    training_history = []
+
+    for epoch in range(epochs):
+        # 训练
+        model.train()
+        train_loss = 0
+        train_preds = []
+        train_labels = []
+
+        for batch in tqdm(train_loader, desc=f'Epoch {epoch + 1}/{epochs} [Train]'):
+            input_ids = batch['input_ids'].to(device)
+            attention_mask = batch['attention_mask'].to(device)
+            token_type_ids = batch['token_type_ids'].to(device)
+            labels = batch['label'].to(device)
+
+            optimizer.zero_grad()
+            outputs = model(input_ids, attention_mask, token_type_ids, labels=labels)
+            loss = outputs['loss']
+            loss.backward()
+
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+
+            optimizer.step()
+
+            train_loss += loss.item()
+            preds = torch.argmax(outputs['logits'], dim=1)
+            train_preds.extend(preds.cpu().numpy())
+            train_labels.extend(labels.cpu().numpy())
+
+        train_acc = np.mean(np.array(train_preds) == np.array(train_labels))
+        scheduler.step()
+
+        # 验证
+        model.eval()
+        val_preds = []
+        val_labels = []
+        val_loss = 0
+
+        with torch.no_grad():
+            for batch in val_loader:
+                input_ids = batch['input_ids'].to(device)
+                attention_mask = batch['attention_mask'].to(device)
+                token_type_ids = batch['token_type_ids'].to(device)
+                labels = batch['label'].to(device)
+
+                outputs = model(input_ids, attention_mask, token_type_ids, labels=labels)
+                val_loss += outputs['loss'].item()
+                preds = torch.argmax(outputs['logits'], dim=1)
+                val_preds.extend(preds.cpu().numpy())
+                val_labels.extend(labels.cpu().numpy())
+
+        val_acc = np.mean(np.array(val_preds) == np.array(val_labels))
+
+        if val_acc > best_val_acc:
+            best_val_acc = val_acc
+            torch.save({
+                'epoch': epoch,
+                'model_state_dict': model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                'val_acc': val_acc,
+                'label_map': label_map
+            }, save_path)
+            print(f"  ✓ 保存最佳模型 (Val Acc: {val_acc:.4f})")
+
+        training_history.append({
+            'epoch': epoch + 1,
+            'train_loss': train_loss / len(train_loader),
+            'train_acc': train_acc,
+            'val_loss': val_loss / len(val_loader),
+            'val_acc': val_acc
+        })
+
+        print(f'Epoch {epoch + 1}: Train Loss={train_loss / len(train_loader):.4f}, '
+              f'Train Acc={train_acc:.4f}, Val Loss={val_loss / len(val_loader):.4f}, '
+              f'Val Acc={val_acc:.4f}')
+
+    print("\n" + "=" * 60)
+    print("最终评估报告")
+    print("=" * 60)
+    print(classification_report(val_labels, val_preds,
+                                target_names=[label_map[i] for i in range(5)]))
+
+    high_risk_f1 = f1_score(val_labels, val_preds, labels=[1, 4], average='macro')
+    print(f"\n高风险类别(1,4) Macro F1: {high_risk_f1:.4f}")
+
+    return model, label_map, training_history
+
+
+# ====== 4. 预测函数 ======
+def predict_sentiment(text, model, tokenizer, label_map, device='cpu'):
+    model.eval()
+    model.to(device)
+
+    encoding = tokenizer(
+        text,
+        truncation=True,
+        padding='max_length',
+        max_length=128,
+        return_tensors='pt',
+        return_token_type_ids=True
+    )
+
+    input_ids = encoding['input_ids'].to(device)
+    attention_mask = encoding['attention_mask'].to(device)
+    token_type_ids = encoding['token_type_ids'].to(device)
+
+    with torch.no_grad():
+        outputs = model(input_ids, attention_mask, token_type_ids)
+        logits = outputs['logits']
+        probs = torch.softmax(logits, dim=1)
+        pred = torch.argmax(probs, dim=1).item()
+        confidence = probs[0][pred].item()
+
+    risk_map = {0: "无风险", 1: "高风险", 2: "低风险", 3: "低风险", 4: "高风险"}
+
+    return {
+        'text': text,
+        'sentiment': label_map[pred],
+        'label_id': pred,
+        'risk_level': risk_map[pred],
+        'confidence': round(confidence, 4),
+        'probabilities': {
+            label_map[i]: round(probs[0][i].item(), 4)
+            for i in range(len(label_map))
+        }
+    }
+
+
+# ====== 5. 加载模型 ======
+def load_model(model_path, model_name='hfl/chinese-roberta-wwm-ext', num_classes=5, device='cpu'):
+    tokenizer = BertTokenizer.from_pretrained(model_name)
+    model = FinBERT5Class(num_classes=num_classes, model_name=model_name)
+
+    checkpoint = torch.load(model_path, map_location=device)
+    model.load_state_dict(checkpoint['model_state_dict'])
+    model.to(device)
+    model.eval()
+
+    label_map = checkpoint.get('label_map', {
+        0: "中性",
+        1: "负面-恐慌/恶意唱空（高风险）",
+        2: "负面-理性担忧（低风险）",
+        3: "正面-理性看好（低风险）",
+        4: "正面-过度狂热（高风险）"
+    })
+
+    print(f"✓ 模型加载成功: {model_path}")
+    return model, tokenizer, label_map
+
+
+# ====== 6. 主程序 ======
+if __name__ == "__main__":
+    CONFIG = {
+        'model_name': 'hfl/chinese-roberta-wwm-ext',
+        'num_classes': 5,
+        'freeze_layers': 6,
+        'max_len': 128,
+        'batch_size': 16,
+        'epochs': 10,
+        'learning_rate': 2e-5,
+        'save_path': 'finbert_5class_best.pth'
+    }
+
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(f"使用设备: {device}")
+
+    tokenizer = BertTokenizer.from_pretrained(CONFIG['model_name'])
+    model = FinBERT5Class(
+        num_classes=CONFIG['num_classes'],
+        freeze_bert_layers=CONFIG['freeze_layers'],
+        model_name=CONFIG['model_name']
+    )
+
+    # 示例数据
+    train_texts = [
+        # ====== 中性 (0) 100条 ======
+        "今日上证指数收于3278点，全天成交额4230亿元。",
+        "央行公开市场今日开展500亿元逆回购操作。",
+        "北向资金全天净买入28.5亿元，连续3日净流入。",
+        "截至收盘，沪指涨0.23%，深成指跌0.18%。",
+        "贵州茅台股价报1690元，总市值2.1万亿。",
+        "两融余额较前一交易日增加12.6亿元。",
+        "今日有3只新股申购，分别是华盛锂电、华大九天。",
+        "人民币中间价报6.7450，上调128个基点。",
+        "南向资金今日净买入港股32.8亿港元。",
+        "沪深两市涨停个股47家，跌停个股8家。",
+        "首批科创板做市商名单出炉，14家券商入选。",
+        "7月份CPI同比上涨2.7%，PPI同比上涨4.2%。",
+        "创业板注册制改革两周年，上市公司数量达355家。",
+        "比亚迪发布7月产销快报，新能源汽车销量16.25万辆。",
+        "宁德时代与宝马集团达成圆柱电池供应协议。",
+        "中芯国际第二季度营收19亿美元，同比增长41.6%。",
+        "隆基绿能上调单晶硅片价格，涨幅约4%。",
+        "药明康德披露半年报，净利润同比增长73.3%。",
+        "赣锋锂业拟投资35亿元建设锂电项目。",
+        "东方财富证券7月份新增开户数环比增长15%。",
+        "今日国债期货全线收跌，10年期主力合约跌0.12%。",
+        "在岸人民币兑美元收盘报6.7520，跌115个基点。",
+        "国际油价反弹，WTI原油重回90美元上方。",
+        "伦敦金现货价格维持在1780美元附近震荡。",
+        "LME铜价上涨1.2%，报每吨8050美元。",
+        "波罗的海干散货运价指数连续5日下跌。",
+        "美国7月非农就业数据超预期，新增52.8万人。",
+        "欧元区7月制造业PMI终值为49.8，跌破荣枯线。",
+        "日本央行维持基准利率在-0.1%不变。",
+        "特斯拉上海工厂7月交付量环比下降64%。",
+        "苹果公司预计9月发布iPhone14系列新品。",
+        "微软发布第四财季财报，营收同比增长12%。",
+        "亚马逊收购医疗保健提供商One Medical。",
+        "Meta计划首次发行债券融资100亿美元。",
+        "台积电7月合并营收1867亿新台币，同比增长49.9%。",
+        "三星电子第二季度营业利润同比增长12%。",
+        "腾讯控股今日回购3.5亿港元股份。",
+        "阿里巴巴新增香港为双重主要上市地。",
+        "京东物流完成收购德邦控股股权。",
+        "美团外卖业务在一线城市日订单量创新高。",
+        "拼多多启动\"2022多多出海\"扶持计划。",
+        "百度Apollo自动驾驶落地重庆永川。",
+        "抖音电商上半年GMV同比增长超2倍。",
+        "快手电商宣布升级信任保障体系。",
+        "网易云音乐上线全新版本，优化社交功能。",
+        "哔哩哔哩发布2022年Q2财报预告。",
+        "贝壳找房宣布完成15亿美元可转债发行。",
+        "华润置地上半年签约销售额1210亿元。",
+        "万科A拟分拆万物云在港交所上市。",
+        "保利发展7月份签约金额330亿元。",
+        "招商蛇口新增6个土地储备项目。",
+        "中国平安前7月原保费收入同比增长1.8%。",
+        "中国人寿在天津设立百亿级养老产业基金。",
+        "中信证券发布配股发行结果公告。",
+        "国泰君安完成发行40亿元短期融资券。",
+        "海通证券获批开展科创板做市业务。",
+        "华泰证券资管规模突破5000亿元。",
+        "广发证券投行业务上半年承销额增长35%。",
+        "申万宏源获准设立资产管理子公司。",
+        "招商银行私人银行客户数突破13万户。",
+        "兴业银行绿色金融融资余额达1.3万亿。",
+        "宁波银行理财子公司在杭州开业。",
+        "南京银行完成苏宁消金股权收购。",
+        "江苏银行上半年净利润同比增长31.2%。",
+        "北京银行与360数科达成战略合作。",
+        "上海银行推出一站式财富管理平台。",
+        "杭州银行理财规模突破3000亿元。",
+        "成都银行拟发行65亿元可转债。",
+        "重庆银行获准发行50亿元二级资本债。",
+        "长沙银行新一代核心系统上线运行。",
+        "贵阳银行落地首笔数字人民币贷款。",
+        "青岛银行获批开展基金投顾试点。",
+        "郑州银行设立10亿元科创基金。",
+        "西安银行与阿里云共建金融科技实验室。",
+        "兰州银行推出线上房产抵押贷款产品。",
+        "厦门银行台胞信用卡发卡量突破1万张。",
+        "苏州银行个人消费贷余额增长22%。",
+        "齐鲁银行普惠小微贷款增速达28%。",
+        "威海银行绿色信贷规模翻番。",
+        "日照港上半年货物吞吐量增长6.8%。",
+        "青岛港新增3条外贸集装箱航线。",
+        "宁波舟山港7月集装箱吞吐量创新高。",
+        "上海港东北亚空箱调运中心启用。",
+        "广州港南沙港区四期工程竣工。",
+        "深圳港盐田港区新增跨境电商专线。",
+        "厦门远海码头自动驾驶项目投运。",
+        "天津港集团发布数字化转型方案。",
+        "大连港开通至东南亚新航线。",
+        "营口港粮食吞吐量突破500万吨。",
+        "连云港港与哈国铁共建物流枢纽。",
+        "北部湾港集装箱吞吐量增21%。",
+        "海南洋浦港开通洲际航线。",
+        "国航7月旅客周转量环比增32%。",
+        "南航新增5条国际货运航线。",
+        "东航C919首架交付机完成试飞。",
+        "海航控股重整计划执行完毕。",
+        "春秋航空7月客座率恢复至85%。",
+        "吉祥航空引进第100架空客飞机。",
+        "华夏航空与商飞签署购机协议。",
+        "山东航空新增济南-首尔航线。",
+        "四川航空加密成都-曼谷航班。",
+        "厦门航空开通福州-纽约航线。",
+        "深圳航空暑运增班超2000架次。",
+
+        # ====== 负面-恐慌/恶意唱空（高风险）(1) 100条 ======
+        "崩盘了！千股跌停！赶紧清仓！再不跑就来不及了！",
+        "惊天大利空！主力资金疯狂出逃！明天还要暴跌！",
+        "完了完了！A股要推倒重来！国家队也救不了！",
+        "快跑！庄家已经跑路了！散户还在傻傻接盘！",
+        "千载难逢的逃命机会！现在不走等着腰斩吧！",
+        "惨烈！4000只股票下跌！市场彻底完蛋了！",
+        "赶紧割肉！越等越惨！这次真的要归零了！",
+        "暴跌才刚刚开始！接下来还有更大的一波！",
+        "完了！技术形态完全走坏！熊市来了！",
+        "救命啊！一天亏了20个点！想死的心都有了！",
+        "惊天大雷！这个公司要退市！持有的快跑！",
+        "主力在玩最后的疯狂！明天就现原形！",
+        "赶紧卖房做空！这是十年一遇的做空机会！",
+        "别抄底！下面还有十八层地狱！",
+        "完蛋了！跌破3000点就是深渊！",
+        "这波下跌要持续到年底！现在只是开始！",
+        "清仓清仓清仓！重要的事情说三遍！",
+        "牛市早就结束了！现在是熊市初期！",
+        "赶紧把基金都赎回！现金为王！",
+        "惨了惨了！我的股票已经腰斩了！",
+        "崩盘倒计时！明天黑色星期四！",
+        "主力在疯狂出货！看龙虎榜就知道了！",
+        "完了！跌破支撑位了！下面没有底！",
+        "快跑啊！这是断头铡刀形态！",
+        "惊天阴谋！机构在做局收割散户！",
+        "赶紧清空账户！离开这个吃人的市场！",
+        "完蛋了！利空消息还没出尽！",
+        "太惨了！一天跌没了半年工资！",
+        "别抱幻想！这次不一样！真的不一样！",
+        "救命！融资盘要爆仓了！",
+        "崩盘信号！外资在疯狂撤离！",
+        "完了！恐慌盘要出来了！",
+        "赶紧止损！少亏当赢！",
+        "别接飞刀！会死得很惨！",
+        "完蛋了！庄家都跑光了！",
+        "惨烈！跌停板上一片哀嚎！",
+        "快逃！这是最后的逃命机会！",
+        "完了！股灾要来了！",
+        "别抄底！地下室还有地下室！",
+        "赶紧清仓！现金为王！",
+        "太可怕了！一天蒸发3万亿！",
+        "完了！牛市旗手都倒下了！",
+        "快跑！游资在疯狂出逃！",
+        "完蛋了！护盘资金也救不了！",
+        "赶紧离场！这是系统性风险！",
+        "惨了！我的股票连续跌停！",
+        "崩盘前最后的宁静！",
+        "别犹豫！赶紧割肉离场！",
+        "完了！最后的多头也投降了！",
+        "快看！主力在偷偷跑路！",
+        "太惨了！韭菜根都割没了！",
+        "赶紧清仓！明天还有低点！",
+        "完蛋了！恐慌情绪蔓延！",
+        "救命！杠杆盘要爆了！",
+        "崩盘倒计时！做好准备！",
+        "快跑！最后的逃生窗口！",
+        "完了！市场信心崩了！",
+        "别做梦了！不会反弹的！",
+        "赶紧卖！越晚越惨！",
+        "太可怕了！血流成河！",
+        "完蛋了！要跌回原点！",
+        "快跑！这是主力陷阱！",
+        "惨烈！比熔断还惨！",
+        "赶紧逃！没时间了！",
+        "完了！政策底已破！",
+        "别抄底！下面无底洞！",
+        "崩盘进行时！快跑！",
+        "太惨了！一天回到解放前！",
+        "赶紧清仓！保命要紧！",
+        "完蛋了！要创新低了！",
+        "快跑！机构在砸盘！",
+        "完了！市场没救了！",
+        "别犹豫！割肉也要跑！",
+        "太可怕了！踩踏式下跌！",
+        "赶紧逃！活下来最重要！",
+        "完蛋了！流动性枯竭！",
+        "快跑！这是最后的生机！",
+        "惨了！要跌破前低了！",
+        "崩盘确认！快逃命！",
+        "赶紧卖！还有更大的雷！",
+        "完了！所有支撑都破了！",
+        "别等了！越等越惨！",
+        "太惨了！资金在疯狂外流！",
+        "快跑！黑天鹅要来了！",
+        "完蛋了！股债汇三杀！",
+        "赶紧清仓！危机来了！",
+        "崩盘了！不要有任何幻想！",
+        "快跑！这是最后的机会！",
+        "完了！要见证历史了！",
+        "别抄底！会死得很惨！",
+        "太可怕了！恐慌指数飙升！",
+        "赶紧逃命！别回头！",
+        "完蛋了！市场崩溃了！",
+
+        # ====== 负面-理性担忧（低风险）(2) 100条 ======
+        "考虑到宏观经济下行压力，短期内市场可能维持震荡。",
+        "公司二季度毛利率下滑2个百分点，需关注成本控制能力。",
+        "行业竞争加剧，预计未来两个季度营收增速可能放缓至15%。",
+        "技术指标显示顶背离，短期或有调整需求，建议控制仓位。",
+        "美联储加息预期升温，对成长股估值形成压制。",
+        "房地产销售数据未见明显改善，产业链仍需谨慎。",
+        "消费复苏力度弱于预期，可选消费板块承压。",
+        "出口增速回落，外需放缓趋势值得警惕。",
+        "上游原材料价格高位运行，中游制造利润受挤压。",
+        "新能源车渗透率增速放缓，行业进入淘汰赛阶段。",
+        "半导体周期下行，库存调整压力显现。",
+        "医药集采范围扩大，相关公司盈利面临考验。",
+        "银行净息差收窄，不良贷款率略有上升。",
+        "券商佣金率持续下滑，经纪业务收入承压。",
+        "保险新业务价值增长乏力，代理人队伍仍在调整。",
+        "光伏产业链价格博弈加剧，组件环节利润承压。",
+        "风电招标价格持续走低，运营商收益率下降。",
+        "储能行业竞争加剧，价格战风险上升。",
+        "军工订单交付节奏放缓，部分公司业绩不及预期。",
+        "食品饮料需求疲软，渠道库存消化需要时间。",
+        "白酒批价小幅回落，动销速度低于往年。",
+        "家电出口订单减少，内需复苏动力不足。",
+        "社服行业复苏不均衡，中小企业经营困难。",
+        "传媒板块商誉减值风险仍需关注。",
+        "计算机行业应收账款周转天数增加。",
+        "通信运营商资本开支趋于谨慎。",
+        "建筑行业新签订单增速放缓。",
+        "建材行业受地产拖累，需求疲弱。",
+        "化工产品价格回落，景气度高位下行。",
+        "有色板块需警惕库存累积风险。",
+        "钢铁行业产能置换压力增加。",
+        "煤炭价格调控预期升温。",
+        "公用事业板块电价上调空间有限。",
+        "交通运输行业货运量增速放缓。",
+        "航空业燃油成本压力较大。",
+        "港口吞吐量增速不及预期。",
+        "环保行业补贴政策存在不确定性。",
+        "机械设备行业订单可见度下降。",
+        "轻工制造出口订单下滑明显。",
+        "纺织服装行业库存压力增加。",
+        "农业板块猪周期拐点尚需确认。",
+        "造纸行业成本传导能力减弱。",
+        "零售行业同店增速持续放缓。",
+        "商贸行业线上线下竞争加剧。",
+        "汽车经销商库存预警指数偏高。",
+        "零部件企业面临年降压力。",
+        "消费电子创新不足，换机周期延长。",
+        "面板价格持续低位运行。",
+        "LED行业产能过剩问题未解。",
+        "安防行业海外市场不确定性增加。",
+        "游戏版号发放节奏不及预期。",
+        "影视行业项目回款周期拉长。",
+        "广告行业投放需求疲软。",
+        "教育行业政策影响仍在消化。",
+        "检测行业竞争格局恶化。",
+        "物业行业关联方风险暴露。",
+        "家居行业地产后周期影响显现。",
+        "造纸包装需求端未见起色。",
+        "珠宝首饰消费场景受限。",
+        "旅游行业恢复速度低于预期。",
+        "酒店行业RevPAR增长乏力。",
+        "餐饮行业同店销售下滑。",
+        "啤酒行业销量增速放缓。",
+        "乳制品行业原奶价格波动。",
+        "调味品行业渠道库存偏高。",
+        "速冻食品行业竞争加剧。",
+        "休闲食品行业线上流量成本上升。",
+        "化妆品行业监管趋严。",
+        "医美行业整顿力度加大。",
+        "宠物行业渗透率提升放缓。",
+        "医疗器械集采压力持续。",
+        "创新药研发风险增加。",
+        "中药行业质量标准提升。",
+        "血制品行业采浆量受限。",
+        "疫苗行业竞争加剧。",
+        "医疗服务监管政策收紧。",
+        "CXO行业订单增速放缓。",
+        "原料药行业价格波动。",
+        "制剂行业一致性评价压力。",
+        "药店行业并购整合风险。",
+        "保险代理人数量仍在下降。",
+        "券商信用业务风险上升。",
+        "信托行业兑付压力增加。",
+        "租赁行业资产质量承压。",
+        "AMC行业处置进度放缓。",
+        "担保行业代偿率上升。",
+        "小贷行业监管趋严。",
+        "典当行业务萎缩。",
+        "第三方支付费率下降。",
+        "征信行业数据合规压力。",
+        "消费金融不良率抬头。",
+        "汽车金融渗透率见顶。",
+        "融资租赁逾期率上升。",
+        "保理行业坏账增加。",
+
+        # ====== 正面-理性看好（低风险）(3) 100条 ======
+        "公司二季度净利润同比增长25%，超出市场预期。",
+        "受益于国产替代进程加速，行业龙头市占率持续提升。",
+        "新能源装机规模快速增长，产业链需求旺盛。",
+        "消费复苏趋势明确，食品饮料板块估值具备吸引力。",
+        "半导体设备国产化率提升，相关公司订单饱满。",
+        "医药行业创新转型成效显著，研发管线储备丰富。",
+        "银行资产质量改善，拨备覆盖率提升至300%以上。",
+        "券商财富管理转型初见成效，代销收入增长35%。",
+        "保险新业务价值降幅收窄，代理人产能提升。",
+        "光伏行业景气度维持高位，龙头一体化优势明显。",
+        "风电装机有望超预期，零部件环节盈利改善。",
+        "储能市场爆发式增长，行业复合增速超50%。",
+        "军工订单饱满，预付款项大幅增加。",
+        "高端白酒需求韧性十足，批价稳中有升。",
+        "家电企业产品结构优化，利润率有望改善。",
+        "社服行业复苏确定性强，龙头市占率提升。",
+        "传媒板块估值处于历史低位，游戏版号常态化发放。",
+        "计算机行业信创加速推进，订单落地超预期。",
+        "通信设备商受益于5G深度覆盖，毛利率改善。",
+        "建筑央企新签订单快速增长，现金流改善明显。",
+        "建材行业集中度提升，龙头议价能力增强。",
+        "化工细分领域供需格局改善，景气度有望延续。",
+        "有色板块新能源需求拉动，铜铝价格中枢上移。",
+        "钢铁行业兼并重组加速，龙头话语权提升。",
+        "煤炭长协价维持高位，企业盈利稳定性增强。",
+        "公用事业绿电交易放量，新能源运营商受益。",
+        "交通运输快递单价企稳回升，行业竞争趋缓。",
+        "航空业国际航线逐步恢复，客座率提升。",
+        "港口费率上调预期增强，盈利能力改善。",
+        "环保行业运营资产占比提升，现金流好转。",
+        "机械行业出口保持韧性，工程机械触底反弹。",
+        "轻工制造龙头海外产能布局，规避贸易壁垒。",
+        "纺织服装运动服饰景气度高，国潮趋势延续。",
+        "农业养殖成本下降，猪价有望企稳回升。",
+        "造纸行业集中度提升，龙头定价权增强。",
+        "零售行业业态创新加速，会员店模式成功。",
+        "商贸公司数字化转型见效，运营效率提升。",
+        "汽车自主品牌份额提升，新能源车型热销。",
+        "零部件企业切入全球供应链，成长空间打开。",
+        "消费电子VR/AR新品发布在即，产业链预热。",
+        "面板行业供需改善，大尺寸价格企稳。",
+        "LED Mini LED渗透率提升，行业升级加速。",
+        "安防行业AI化转型深入，解决方案占比提升。",
+        "游戏公司出海业务高增，海外收入占比提升。",
+        "影视行业内容供给改善，票房恢复超预期。",
+        "广告行业复苏确定性强，梯媒景气度回升。",
+        "教育行业转型初见成效，职业教育需求旺盛。",
+        "检测行业龙头全国布局，市占率持续提升。",
+        "物业行业存量市场竞争，增值服务成亮点。",
+        "家居行业整装业务放量，客单价提升。",
+        "造纸包装行业集中度提升，龙头话语权增强。",
+        "珠宝首饰婚庆需求回补，金价高位利好。",
+        "旅游行业周边游需求旺盛，景区客流恢复。",
+        "酒店行业加盟扩张加速，中高端占比提升。",
+        "餐饮行业连锁化率提升，龙头优势明显。",
+        "啤酒行业高端化趋势延续，吨价持续提升。",
+        "乳制品行业竞争趋缓，原奶价格下行利好。",
+        "调味品行业渠道调整到位，动销逐步恢复。",
+        "速冻食品行业B端需求回暖，产能利用率提升。",
+        "休闲食品行业线上渠道优化，利润率改善。",
+        "化妆品行业功效性护肤品高增，国货崛起。",
+        "医美行业合规化进程加速，头部集中。",
+        "宠物行业国产品牌崛起，线上渠道放量。",
+        "医疗器械创新产品获批，进口替代加速。",
+        "创新药出海进展不断，授权交易活跃。",
+        "中药行业政策支持明确，品牌价值凸显。",
+        "血制品行业供需紧平衡，价格稳中有升。",
+        "疫苗行业重磅品种上市，市场空间广阔。",
+        "医疗服务消费升级趋势，连锁扩张加速。",
+        "CXO行业在手订单充足，产能持续扩张。",
+        "原料药行业特色品种放量，毛利率提升。",
+        "制剂行业一致性评价通过品种增加。",
+        "药店行业集中度提升，处方外流受益。",
+        "保险行业改革成效显现，新业务价值企稳。",
+        "券商财富管理转型深化，公募基金业务发力。",
+        "信托行业转型标品业务，主动管理能力提升。",
+        "租赁行业专业化经营深化，资产质量改善。",
+        "AMC行业不良资产处置加快，盈利修复。",
+        "担保行业业务结构优化，风险控制加强。",
+        "小贷行业科技赋能，获客成本下降。",
+        "典当行业务模式创新，民品业务增长。",
+        "第三方支付行业费率企稳，增值服务增加。",
+        "征信行业个人征信牌照落地，业务拓展加速。",
+        "消费金融行业客群上移，资产质量改善。",
+        "汽车金融渗透率提升，金融科技赋能。",
+        "融资租赁行业专业化经营，利差扩大。",
+        "保理行业供应链金融发力，不良率下降。",
+
+        # ====== 正面-过度狂热（高风险）(4) 100条 ======
+        "重大突破！下周开始连续20个涨停板！见证奇迹！",
+        "史诗级行情！错过这次再等十年！现在满仓干！",
+        "绝密消息！这个股票下周翻倍！赶紧上车！",
+        "惊天大利好！主力要拉10倍！现在就是最低点！",
+        "千载难逢的机会！卖房买它！财富自由就靠这次！",
+        "重大重组！资产注入！最少涨5倍！内幕人士透露！",
+        "无敌了！这个票要涨到1000！现在才50！",
+        "神操作！今天满仓买入！明天一字板！",
+        "突发重磅！这个板块要疯！赶紧抢筹！",
+        "超级利好！国家要重点扶持！十倍牛股诞生！",
+        "最后的上车机会！错过后悔一辈子！",
+        "惊天内幕！庄家要拉高出货前赶紧跟进！",
+        "重大合同！订单排到明年！股价要飞天！",
+        "绝世好票！穿越牛熊！现在不买更待何时！",
+        "疯狂！这个赛道要出百倍股！抓紧布局！",
+        "重磅消息！下周连续涨停！提前埋伏！",
+        "内幕！主力要搞事情！赶紧跟进吃肉！",
+        "惊天发现！这个票要复制茅台奇迹！",
+        "神级操作！现在满仓融资买入！坐等翻倍！",
+        "重大转机！困境反转！最少3倍空间！",
+        "无敌了！技术形态完美！主升浪开启！",
+        "最后上车机会！庄家要拉了！赶紧！",
+        "惊天内幕！重组方案已定！复牌暴涨！",
+        "绝世好股！业绩暴增10倍！股价要飞天！",
+        "疯狂！这个票要成妖！赶紧上车吃肉！",
+        "重大利好！政策扶持！最少5倍空间！",
+        "神级机会！错过就是罪过！满仓梭哈！",
+        "惊天布局！主力吸筹完毕！拉升在即！",
+        "无敌票！技术面基本面全面爆发！",
+        "最后机会！庄家要抢筹了！赶紧跟上！",
+        "内幕消息！下周重大事项公告！",
+        "惊人大发现！这个票严重低估！",
+        "绝世良机！现在就是黄金坑！",
+        "重大突破！技术革命！空间无限！",
+        "疯狂！游资盯上了！明天涨停！",
+        "神操作！今天最后买入机会！",
+        "惊天大利好！明天一字板！",
+        "无敌了！主升浪要来了！",
+        "最后上车！错过拍大腿！",
+        "内幕！下周翻倍！",
+        "惊天内幕！重大资产重组！",
+        "绝世好票！十年一遇！",
+        "重大利好！要停牌了！",
+        "疯狂！资金在抢筹！",
+        "神级机会！满仓干！",
+        "惊天布局！拉升在即！",
+        "无敌票！要成妖！",
+        "最后机会！赶紧！",
+        "内幕消息！大涨！",
+        "惊人发现！低估！",
+        "绝世良机！黄金坑！",
+        "重大突破！革命！",
+        "疯狂！涨停！",
+        "神操作！买入！",
+        "惊天大利好！",
+        "无敌了！起飞！",
+        "最后上车！",
+        "内幕！大涨！",
+        "惊人！翻倍！",
+        "绝世！十年！",
+        "重大！重组！",
+        "疯狂！抢筹！",
+        "神级！满仓！",
+        "惊天！拉升！",
+        "无敌！成妖！",
+        "最后！机会！",
+        "内幕！消息！",
+        "惊人！发现！",
+        "绝世！良机！",
+        "重大！突破！",
+        "疯狂！资金！",
+        "神级！操作！",
+        "惊天！利好！",
+        "无敌！牛股！",
+        "最后！上车！",
+        "内幕！重组！",
+        "惊人！空间！",
+        "绝世！机会！",
+        "重大！转折！",
+        "疯狂！主升浪！",
+        "神级！翻倍！",
+        "惊天！布局！",
+        "无敌！爆发！",
+        "最后！抄底！",
+        "内幕！公告！",
+        "惊人！价值！",
+        "绝世！低估！",
+        "重大！合同！",
+        "疯狂！连板！",
+        "神级！财富！"
+    ]
+
+    train_labels = [0] * 103 + [1] * 93 + [2] * 94 + [3] * 87 + [4] * 90  #
+
+    val_texts = [
+        # ====== 中性 (0) 20条 ======
+        "恒生指数收报19800点，成交额1200亿港元。",
+        "今日在岸人民币兑美元中间价报6.7680。",
+        "两市融资余额增加8.7亿元至1.52万亿元。",
+        "7月社会融资规模增量为7561亿元。",
+        "比亚迪7月新能源汽车销量16.25万辆。",
+        "宁德时代发布麒麟电池首批合作车企。",
+        "药明康德半年报显示营收同比增长68%。",
+        "隆基绿能上调硅片价格0.24元/片。",
+        "东方财富证券7月新增开户8.5万户。",
+        "中信证券获批科创板做市商资格。",
+        "工商银行个人养老金账户开户数突破1000万。",
+        "中国平安前7月保费收入同比增长2.5%。",
+        "万科A前7月合同销售额2490亿元。",
+        "保利发展7月新增土储建面80万平米。",
+        "招商蛇口发行20亿元绿色债券。",
+        "华润置地7月租金收入同比增长15%。",
+        "龙湖集团提前赎回3亿美元债券。",
+        "碧桂园获银行间市场50亿中票注册。",
+        "美的集团启动新一轮股份回购。",
+        "格力电器发布新一代空调产品。",
+
+        # ====== 负面-恐慌/恶意唱空（高风险）(1) 20条 ======
+        "完蛋了！千股跌停再现！赶紧逃命！",
+        "崩盘确认！最后逃命机会！快跑！",
+        "惨烈！4000只股票下跌！血流成河！",
+        "快跑！主力在疯狂出货！明天还要跌！",
+        "完了！跌停板上哀鸿遍野！",
+        "救命！一天亏了30%！想死！",
+        "赶紧清仓！现金为王！别犹豫！",
+        "太可怕了！恐慌盘砸出来了！",
+        "完蛋了！所有支撑都破了！",
+        "快逃！这是最后的逃生窗口！",
+        "惨了！融资盘要爆仓了！",
+        "崩盘倒计时！明天黑色星期五！",
+        "赶紧卖房做空！千载难逢！",
+        "完了！牛市旗手中信跌停了！",
+        "太惨了！一天蒸发5万亿！",
+        "快跑！外资在疯狂撤离！",
+        "完蛋了！要跌破3000点！",
+        "赶紧割肉！少亏当赢！",
+        "救命！杠杆盘要爆了！",
+        "崩盘！不要有任何幻想！",
+
+        # ====== 负面-理性担忧（低风险）(2) 20条 ======
+        "经济数据不及预期，市场短期承压。",
+        "公司应收账款周转天数延长，需关注回款情况。",
+        "行业库存水平上升，去化压力增加。",
+        "技术形态走弱，或有进一步调整可能。",
+        "美联储鹰派表态，外资流出压力加大。",
+        "房地产销售未见起色，产业链仍需谨慎。",
+        "消费复苏动力不足，社零增速放缓。",
+        "出口订单下滑，外需疲软趋势延续。",
+        "原材料价格上涨挤压中游利润。",
+        "新能源车补贴退坡影响销量。",
+        "半导体下行周期持续，库存调整中。",
+        "医药集采扩面，价格压力增加。",
+        "银行净息差收窄趋势未改。",
+        "券商佣金率下滑，经纪业务承压。",
+        "保险代理人数量仍在探底。",
+        "光伏组件环节利润受挤压。",
+        "风电招标价格持续走低。",
+        "储能行业竞争加剧。",
+        "军工订单交付延迟。",
+        "白酒批价小幅回落。",
+
+        # ====== 正面-理性看好（低风险）(3) 20条 ======
+        "公司净利润增长30%，超市场预期。",
+        "国产替代加速，行业空间打开。",
+        "新能源装机高增，需求旺盛。",
+        "消费稳步复苏，板块估值修复。",
+        "半导体设备国产化率提升。",
+        "创新药研发进展顺利。",
+        "银行资产质量持续改善。",
+        "券商财富管理转型见效。",
+        "保险改革成效显现。",
+        "光伏龙头优势巩固。",
+        "风电装机有望超预期。",
+        "储能市场爆发增长。",
+        "军工订单饱满。",
+        "高端白酒需求韧性足。",
+        "家电产品结构优化。",
+        "社服复苏确定性强。",
+        "游戏版号常态化发放。",
+        "信创加速推进。",
+        "5G深度覆盖受益。",
+        "建筑央企订单增长。",
+
+        # ====== 正面-过度狂热（高风险）(4) 20条 ======
+        "下周连续10个涨停！见证历史！",
+        "史诗级牛市！满仓干！财富自由！",
+        "内幕消息！这个票要涨10倍！",
+        "重大重组！最少翻5倍！",
+        "卖房买它！错过后悔一辈子！",
+        "超级大利好！明天一字板！",
+        "神级机会！现在最后上车！",
+        "惊天发现！十倍牛股诞生！",
+        "无敌了！主升浪开启！",
+        "最后抄底机会！庄家要拉了！",
+        "内幕！重组方案已定！",
+        "绝世好票！穿越牛熊！",
+        "重大突破！空间无限！",
+        "疯狂！资金抢筹中！",
+        "神操作！满仓融资！",
+        "惊天布局！拉升在即！",
+        "无敌票！要成妖！",
+        "最后上车！拍大腿！",
+        "内幕！下周翻倍！",
+        "惊人！严重低估！"
+    ]
+
+    val_labels = [0] * 20 + [1] * 20 + [2] * 20 + [3] * 20 + [4] * 20
+
+    train_dataset = SentimentDataset(train_texts, train_labels, tokenizer, CONFIG['max_len'])
+    val_dataset = SentimentDataset(val_texts, val_labels, tokenizer, CONFIG['max_len'])
+
+    train_loader = DataLoader(train_dataset, batch_size=CONFIG['batch_size'], shuffle=True)
+    val_loader = DataLoader(val_dataset, batch_size=CONFIG['batch_size'])
+
+    print(f"\n训练集大小: {len(train_dataset)}")
+    print(f"验证集大小: {len(val_dataset)}\n")
+
+    trained_model, label_map, history = train_finbert_5class(
+        model, train_loader, val_loader,
+        epochs=CONFIG['epochs'],
+        lr=CONFIG['learning_rate'],
+        device=device,
+        save_path=CONFIG['save_path']
+    )
+
+    with open('training_history.json', 'w', encoding='utf-8') as f:
+        json.dump(history, f, ensure_ascii=False, indent=2)
+    print(f"\n✓ 训练历史已保存到 training_history.json")
+
+    # 预测示例
+    print("\n" + "=" * 60)
+    print("预测示例")
+    print("=" * 60)
+
+    test_texts = [
+        "这个股票明天必定暴涨100倍，错过后悔一辈子！！！",
+        "公司现金流充裕，财务状况稳健，建议长期持有。",
+        "崩盘了！快跑！完蛋了！",
+        "市场风险加剧，建议谨慎操作。",
+        "今日两市成交量温和放大，指数窄幅震荡。",
+    ]
+
+    for text in test_texts:
+        result = predict_sentiment(text, trained_model, tokenizer, label_map, device)
+        print(f"\n文本：{text[:50]}...")
+        print(f"情感：{result['sentiment']}")
+        print(f"风险等级：{result['risk_level']}")
+        print(f"置信度：{result['confidence']:.4f}")

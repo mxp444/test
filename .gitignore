@@ -1,0 +1,48 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE settings
+.idea/
+.vscode/
+
+# Runtime uploads and generated outputs
+uploads/
+*/uploads/
+pics/
+*/pics/
+images/
+*/images/
+json/
+*/json/
+
+# Model checkpoints and large ML artifacts
+checkpoint-*/
+*/checkpoint-*/
+*.pth
+*.pt
+*.bin
+*.safetensors
+*.h5
+*.word
+
+# Training logs and generated history
+training_history.json
+runs/
+logs/
+
+# Spider runtime/cache/output data
+crawls/
+requests.queue/
+requests.seen
+微博爬虫/结果文件/
+微博爬虫/weibo/结果文件/
+
+# Office temporary files
+~$*
