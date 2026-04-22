@@ -261,15 +261,38 @@ button:disabled {
 
 .bars {
   display: grid;
-  gap: 12px;
+  gap: 14px;
   margin-top: 12px;
 }
 
 .bar-row {
   display: grid;
-  grid-template-columns: 132px 1fr 62px;
-  align-items: center;
-  gap: 12px;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #f8fbf9;
+}
+
+.bar-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  min-width: 0;
+}
+
+.bar-head strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.35;
+}
+
+.bar-head span {
+  flex: none;
+  color: var(--ink);
+  font-weight: 800;
 }
 
 .bar-track {
@@ -286,18 +309,40 @@ button:disabled {
 }
 
 .chips {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 10px;
   margin-top: 12px;
+  min-width: 0;
 }
 
 .chip {
-  padding: 9px 12px;
+  display: grid;
+  grid-template-columns: 1fr;
+  align-content: center;
+  gap: 6px;
+  min-width: 0;
+  min-height: 74px;
+  padding: 12px;
   border-radius: 8px;
   background: #edf2f6;
+  color: var(--ink);
+  line-height: 1.35;
+}
+
+.chip span {
+  min-width: 0;
   color: var(--blue);
   font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.chip strong {
+  min-width: 0;
+  color: var(--ink);
+  font-size: 22px;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
 }
 
 .feature-list {
@@ -308,15 +353,105 @@ button:disabled {
 
 .feature-row {
   display: grid;
-  grid-template-columns: 150px 1fr;
+  grid-template-columns: minmax(130px, 0.34fr) minmax(0, 1fr);
   gap: 12px;
+  padding: 12px;
+  border-radius: 8px;
+  background: #f8fbf9;
+  min-width: 0;
+}
+
+.feature-row span {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}
+
+.feature-row strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-height: 1.55;
+}
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.metric-item {
+  min-width: 0;
   padding: 12px;
   border-radius: 8px;
   background: #f8fbf9;
 }
 
-.feature-row span {
+.metric-item span {
+  display: block;
+  overflow-wrap: anywhere;
   color: var(--muted);
+  font-size: 13px;
+}
+
+.metric-item strong {
+  display: block;
+  margin-top: 8px;
+  color: var(--green);
+  font-size: 20px;
+}
+
+.analysis-card {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+  margin-top: 12px;
+}
+
+.analysis-section {
+  min-width: 0;
+  padding: 14px;
+  border-radius: 8px;
+  background: #fbfdfb;
+  border: 1px solid var(--line);
+}
+
+.analysis-section:has(.bars),
+.analysis-section:has(.text-box),
+.analysis-section:has(.mini-list) {
+  grid-column: 1 / -1;
+}
+
+.analysis-section h4 {
+  margin: 0 0 10px;
+  font-size: 15px;
+}
+
+.text-box {
+  margin: 0;
+  max-height: 180px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.mini-list {
+  margin: 0;
+  padding-left: 18px;
+  line-height: 1.7;
+}
+
+.analysis-section .feature-row,
+.analysis-section .bar-row,
+.analysis-section .chips {
+  margin-top: 8px;
+}
+
+.analysis-section .chips {
+  grid-template-columns: repeat(auto-fit, minmax(138px, 1fr));
 }
 
 .component-status {
@@ -327,7 +462,7 @@ button:disabled {
 
 .component-row {
   display: grid;
-  grid-template-columns: 1fr 86px 72px;
+  grid-template-columns: minmax(0, 1fr) 92px 76px;
   gap: 10px;
   align-items: center;
   padding: 10px 12px;
@@ -403,7 +538,6 @@ pre {
   }
 
   .score-grid,
-  .bar-row,
   .feature-row,
   .component-row,
   .upload-box {
@@ -412,5 +546,35 @@ pre {
 
   h1 {
     font-size: 32px;
+  }
+}
+
+@media (max-width: 560px) {
+  .app-shell {
+    width: min(100% - 20px, 1200px);
+    padding: 20px 0;
+  }
+
+  .panel {
+    padding: 18px;
+  }
+
+  .score-grid,
+  .chips,
+  .metric-grid,
+  .analysis-card {
+    grid-template-columns: 1fr;
+  }
+
+  .bar-head {
+    align-items: flex-start;
+  }
+
+  .bar-head span {
+    padding-top: 2px;
+  }
+
+  .chip {
+    min-height: 64px;
   }
 }

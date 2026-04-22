@@ -36,14 +36,11 @@ def load_analyzer_class():
 
 
 AnalyzerClass = load_analyzer_class()
-risk_engine = None
+risk_engine = AnalyzerClass(base_dir=str(BASE_DIR), strict_init=True)
 app = Flask(__name__, static_folder=str(FRONTEND_DIR), static_url_path="")
 
 
 def get_risk_engine():
-    global risk_engine
-    if risk_engine is None:
-        risk_engine = AnalyzerClass(base_dir=str(BASE_DIR))
     return risk_engine
 
 
@@ -129,12 +126,13 @@ def analyze():
         result = get_risk_engine().analyze(post_text=post_text, image_path=str(image_path))
         return jsonify({"success": True, "data": compact_result(result)})
     except Exception as exc:
-        status_code = 400 if isinstance(exc, ValueError) else 500
-        return jsonify({"success": False, "error": public_error_message(exc)}), status_code
+        if isinstance(exc, ValueError):
+            return jsonify({"success": False, "error": public_error_message(exc)}), 400
+        raise
 
 
 if __name__ == "__main__":
-    app.run(host="127.0.0.1", port=5000, debug=True)
+    app.run(host="127.0.0.1", port=5000, debug=True, use_reloader=False)
 
 """
 美股指数基金主要投资于指数成份股，这些成份股通常会覆盖多个行业和板块，

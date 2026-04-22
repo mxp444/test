@@ -8,6 +8,8 @@ class OCR():
     def __init__(self):
         self.wechat_ocr_dir = r"C:\Users\R9000P\AppData\Roaming\Tencent\WeChat\XPlugin\Plugins\WeChatOCR\\7079\extracted\WeChatOCR.exe"
         self.wechat_dir = r"C:\Program Files\Tencent\Weixin\\4.1.7.59"
+        self.output_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "json")
+        os.makedirs(self.output_dir, exist_ok=True)
 
         self.ocr_manager = OcrManager(self.wechat_dir)
         # 设置WeChatOcr目录
@@ -20,7 +22,7 @@ class OCR():
         self.ocr_manager.StartWeChatOCR()
 
     def ocr_result_callback(self, img_path: str, results: dict):
-        result_file = "./json/" + os.path.basename(img_path) + ".json"
+        result_file = os.path.join(self.output_dir, os.path.basename(img_path) + ".json")
         print(f"识别成功，img_path: {img_path}, result_file: {result_file}")
         with open(result_file, 'w', encoding='utf-8') as f:
             f.write(json.dumps(results, ensure_ascii=False, indent=2))

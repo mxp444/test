@@ -266,9 +266,10 @@ class FusionNetwork:
 
 
 class MultimodalRiskFusion:
-    def __init__(self, base_dir: Optional[str] = None):
+    def __init__(self, base_dir: Optional[str] = None, strict_init: bool = False):
         self.base_dir = Path(base_dir or Path(__file__).resolve().parent).resolve()
         self.json_dir = self.base_dir / "json"
+        self.strict_init = strict_init
         self.component_status: Dict[str, str] = {}
         self.component_load_seconds: Dict[str, float] = {}
         self.init_errors: List[str] = []
@@ -281,6 +282,7 @@ class MultimodalRiskFusion:
         self.risk_factor = self._safe_init("nlp风险要素识别", "Risk_factor", HeuristicRiskFactor)
         self.sentiment_analysis = self._safe_init("nlp情感分析", "Sentiment_analysis", HeuristicSentimentAnalysis)
         self.incitement_evaluator = self._safe_init("nlp煽动性评估", "Incitement_evaluator", HeuristicIncitementEvaluator)
+        self.ocr_engine = self._safe_init("picOCR文字识别", "OCR", None)
         self.qr_code_detector = self._safe_init("pic二维码检测", "QR_code_detector", HeuristicQRDetector)
         self.ambiguity = self._safe_init("pic模糊度检测", "Ambiguity", HeuristicAmbiguity)
         self.color_richness = self._safe_init("pic色彩丰富程度", "Color_richness", HeuristicColorRichness)
@@ -390,6 +392,7 @@ class MultimodalRiskFusion:
                     design_std = round(float(std), 4)
                 except Exception as exc:
                     errors.append(f"设计感检测失败: {exc}")
+            ocr_meta = self._run_ocr_to_json(image_path, errors)
 
         qr_result = qr_result if isinstance(qr_result, dict) else {}
         ocr_text = self._load_cached_ocr_text(image_path)
@@ -413,6 +416,7 @@ class MultimodalRiskFusion:
 
         return {
             "ocr_text": ocr_text,
+            "ocr_result_json": ocr_meta,
             "qr_result": {
                 "qr_detected": bool(qr_result.get("qr_detected")),
                 "qr_data": qr_result.get("qr_data"),
@@ -614,14 +618,16 @@ class MultimodalRiskFusion:
             self.component_load_seconds[component_name] = round(time.perf_counter() - start, 3)
             return instance
         except Exception as exc:
+            self.component_load_seconds[component_name] = round(time.perf_counter() - start, 3)
+            if self.strict_init:
+                self.component_status[component_name] = "failed"
+                raise RuntimeError(f"{component_name} 加载失败: {exc}") from exc
             if fallback_cls is not None:
                 self.component_status[component_name] = "fallback"
-                self.component_load_seconds[component_name] = round(time.perf_counter() - start, 3)
                 self.init_errors.append(f"{component_name}: {exc}")
                 return fallback_cls()
             if record_error:
                 self.component_status[component_name] = "unavailable"
-                self.component_load_seconds[component_name] = round(time.perf_counter() - start, 3)
                 self.init_errors.append(f"{component_name}: {exc}")
             return None
 
@@ -653,6 +659,39 @@ class MultimodalRiskFusion:
             except Exception:
                 continue
         return ""
+
+    def _run_ocr_to_json(self, image_path: Path, errors: List[str], timeout_seconds: float = 12.0) -> Dict[str, Any]:
+        target_json = self.json_dir / f"{image_path.name}.json"
+        self.json_dir.mkdir(parents=True, exist_ok=True)
+
+        if self.ocr_engine is None:
+            if target_json.exists():
+                return {"status": "cached", "json_path": str(target_json), "message": "OCR 组件不可用，读取已有缓存"}
+            errors.append("OCR文字识别不可用，未能生成图片文字 JSON")
+            return {"status": "unavailable", "json_path": str(target_json), "message": "OCR 组件不可用"}
+
+        start = time.perf_counter()
+        try:
+            self.ocr_engine.ocr_manager.DoOCRTask(str(image_path))
+            deadline = time.time() + timeout_seconds
+            while time.time() < deadline:
+                if target_json.exists():
+                    return {
+                        "status": "generated",
+                        "json_path": str(target_json),
+                        "elapsed_seconds": round(time.perf_counter() - start, 3),
+                    }
+                time.sleep(0.1)
+        except Exception as exc:
+            errors.append(f"OCR文字识别失败: {exc}")
+            if target_json.exists():
+                return {"status": "cached_after_error", "json_path": str(target_json), "message": str(exc)}
+            return {"status": "error", "json_path": str(target_json), "message": str(exc)}
+
+        errors.append(f"OCR文字识别超时，未在 {timeout_seconds:.0f}s 内生成 JSON")
+        if target_json.exists():
+            return {"status": "cached_after_timeout", "json_path": str(target_json)}
+        return {"status": "timeout", "json_path": str(target_json)}
 
     def _call_image_component(self, name: str, fn, errors: List[str], default):
         try:
@@ -892,7 +931,13 @@ ChatGPTRiskAnalyzer = MultimodalRiskFusion
 
 
 if __name__ == "__main__":
-    demo_text = "限时福利，扫码添加客服领取投资资料，内部渠道推荐高收益理财方案，机会难得，错过不再。"
+    demo_text = """美股指数基金主要投资于指数成份股，这些成份股通常会覆盖多个行业和板块，
+所以能分散风险，长期收益较稳定，而且操作简单方便，对个人投资者比较友好。
+我们在选择指数基金的时候，首先需要明确投资目标、投资期限、预期收益和风险承受能力。
+你是保守保本型，稳健固收型，还是权益增长型。也可以选择标普、纳指、国债等指数。
+如果对科技、人工智能、AI行业感兴趣，可以选择纳指100。
+指数基金费用、历史业绩、年化收益率和波动率都可以作为参考。
+#香港理财财富管理##保险基金#"""
     demo_image = "pics/f97c511ba970ba119590ad18aec2e0b5.jpeg"
     analyzer = MultimodalRiskFusion()
     result = analyzer.analyze(demo_text, demo_image)
