@@ -49,9 +49,7 @@
           <h2>模型分析结果</h2>
         </div>
 
-        <div id="emptyState" class="empty-state">
-          <p>提交样本后，系统将展示综合风险分、模态分解、跨模态融合特征、融合网络输出层和关键证据。</p>
-        </div>
+        <div id="emptyState" class="empty-state"></div>
 
         <div id="loadingState" class="loading-state hidden">
           <div class="loader"></div>
@@ -78,10 +76,10 @@
             <div id="networkOutput" class="bars"></div>
           </section>
 
-          <section class="result-block">
-            <h3>融合输入特征向量</h3>
+          <details class="result-block result-details">
+            <summary>展示融合输入特征向量</summary>
             <div id="fusionVector" class="metric-grid"></div>
-          </section>
+          </details>
 
           <section class="result-block">
             <h3>跨模态融合特征</h3>
@@ -89,30 +87,24 @@
           </section>
 
           <section class="result-block">
-            <h3>模态权重与得分</h3>
-            <div id="modalityWeights" class="chips"></div>
-            <div id="modalityScores" class="chips"></div>
-          </section>
-
-          <section class="result-block">
             <h3>关键证据</h3>
             <ul id="reasons" class="reasons"></ul>
           </section>
 
-          <section class="result-block">
-            <h3>正文文本分析</h3>
+          <details class="result-block result-details">
+            <summary>展示正文文本分析</summary>
             <div id="textAnalysis" class="analysis-card"></div>
-          </section>
+          </details>
 
-          <section class="result-block">
-            <h3>图片视觉与 OCR 结果</h3>
+          <details class="result-block result-details">
+            <summary>展示图片视觉与 OCR 结果</summary>
             <div id="imageAnalysis" class="analysis-card"></div>
-          </section>
+          </details>
 
-          <section class="result-block">
-            <h3>OCR 文本分析</h3>
+          <details class="result-block result-details">
+            <summary>展示 OCR 文本分析</summary>
             <div id="ocrAnalysis" class="analysis-card"></div>
-          </section>
+          </details>
 
           <section class="result-block">
             <h3>模型组件状态</h3>

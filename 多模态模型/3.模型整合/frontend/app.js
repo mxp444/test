@@ -15,8 +15,6 @@ const conclusion = document.querySelector("#conclusion");
 const suggestion = document.querySelector("#suggestion");
 const networkOutput = document.querySelector("#networkOutput");
 const fusionVector = document.querySelector("#fusionVector");
-const modalityScores = document.querySelector("#modalityScores");
-const modalityWeights = document.querySelector("#modalityWeights");
 const crossFeatures = document.querySelector("#crossFeatures");
 const reasons = document.querySelector("#reasons");
 const textAnalysis = document.querySelector("#textAnalysis");
@@ -33,13 +31,6 @@ const outputLabels = {
   consistency_risk: "图文一致性风险",
 };
 
-const modalityLabels = {
-  post_text_score: "正文语义",
-  image_score: "图像视觉",
-  ocr_text_score: "图片文字",
-  cross_modal_score: "跨模态交互",
-};
-
 const crossLabels = {
   semantic_consistency: "语义一致性",
   risk_alignment: "风险类别对齐",
@@ -50,13 +41,6 @@ const crossLabels = {
   shared_risk_categories: "共享风险类别",
   text_image_reinforcement: "图文强化关系",
   contradictions: "矛盾信号",
-};
-
-const weightLabels = {
-  text: "正文权重",
-  image: "图像权重",
-  ocr_text: "OCR 权重",
-  cross_modal: "跨模态权重",
 };
 
 const scoreLabels = {
@@ -254,15 +238,13 @@ function renderResult(data) {
   networkOutput.innerHTML = renderBars(summary.network_output || {}, outputLabels);
   fusionVector.innerHTML = renderVector(fusion.fused_feature_vector || {});
   crossFeatures.innerHTML = renderFeatureList(summary.cross_modal_features || {}, crossLabels);
-  modalityWeights.innerHTML = renderChips(fusion.modality_weights || {}, weightLabels, true);
-  modalityScores.innerHTML = renderChips(summary.modality_breakdown || {}, modalityLabels);
 
   const evidence = Array.isArray(summary.reasons) ? summary.reasons : [];
   reasons.innerHTML = evidence.length
     ? evidence.slice(0, 10).map((item) => `<li>${escapeHtml(String(item))}</li>`).join("")
     : "<li>暂无关键证据。</li>";
 
-  textAnalysis.innerHTML = renderTextAnalysis(text);
+  textAnalysis.innerHTML = renderTextAnalysis(text, false, false);
   imageAnalysis.innerHTML = renderImageAnalysis(image);
   ocrAnalysis.innerHTML = renderTextAnalysis(ocr, true);
   componentStatus.innerHTML = renderComponentStatus(data.runtime || {});
@@ -335,14 +317,14 @@ function renderVector(vector) {
     .join("");
 }
 
-function renderTextAnalysis(result, isOcr = false) {
+function renderTextAnalysis(result, isOcr = false, showRawText = true) {
   const rawText = result.raw_text || "";
   if (isOcr && !rawText) {
     return "<p class=\"muted\">未识别到图片文字，OCR 文本模型未产生有效文本特征。</p>";
   }
 
   return `
-    ${renderRawText(rawText, isOcr ? "识别文本" : "输入文本")}
+    ${showRawText ? renderRawText(rawText, isOcr ? "识别文本" : "输入文本") : ""}
     ${renderSection("综合评分", renderChips(result.scores || {}, scoreLabels))}
     ${renderSection("金融属性 Top4", renderFinanceTopk(result.finance_topk || []))}
     ${renderSection("风险要素评分", renderRiskScores(result.risk_factor_scores || {}))}
@@ -355,7 +337,6 @@ function renderTextAnalysis(result, isOcr = false) {
 function renderImageAnalysis(result) {
   return `
     ${renderRawText(result.ocr_text || "", "OCR 识别文字")}
-    ${renderSection("OCR 识别文件", renderObjectSummary(result.ocr_result_json || {}))}
     ${renderSection("图片综合评分", renderChips(result.scores || {}, scoreLabels))}
     ${renderSection("视觉指标", renderObjectSummary(result.visual_metrics || {}))}
     ${renderSection("二维码检测", renderObjectSummary(result.qr_result || {}))}

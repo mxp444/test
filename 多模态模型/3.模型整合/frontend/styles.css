@@ -197,10 +197,17 @@ button:disabled {
 .empty-state,
 .loading-state {
   display: grid;
-  min-height: 420px;
   place-items: center;
   text-align: center;
   color: var(--muted);
+}
+
+.empty-state {
+  min-height: 0;
+}
+
+.loading-state {
+  min-height: 420px;
 }
 
 .loader {
@@ -257,6 +264,54 @@ button:disabled {
 
 .result-block {
   margin-top: 24px;
+}
+
+.result-details {
+  border: 0;
+}
+
+.result-details summary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 9px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #edf2f6;
+  color: var(--blue);
+  font-weight: 800;
+  cursor: pointer;
+  user-select: none;
+}
+
+.result-details summary:hover {
+  border-color: #b9c9d1;
+  background: #e5eef3;
+}
+
+.result-details[open] summary {
+  margin-bottom: 12px;
+  color: white;
+  background: var(--blue);
+}
+
+.result-details summary::marker {
+  content: "";
+}
+
+.result-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.result-details summary::before {
+  content: "+";
+  margin-right: 8px;
+  font-weight: 900;
+}
+
+.result-details[open] summary::before {
+  content: "-";
 }
 
 .bars {
