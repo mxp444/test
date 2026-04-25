@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>完整多模态分析报告</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <p>Full Multimodal Risk Analysis Report</p>
+      <h1>完整多模态分析报告</h1>
+    </div>
+    <span id="reportStatus" class="status-pill">加载中</span>
+  </header>
+
+  <main class="report-shell">
+    <div class="report-toolbar">
+      <a class="back-link" href="/">返回监测列表</a>
+      <span id="reportMeta">等待数据</span>
+    </div>
+
+    <section id="reportContent" class="report-card">
+      <p class="text-box">正在读取分析结果...</p>
+    </section>
+  </main>
+
+  <script src="./report.js"></script>
+</body>
+</html>

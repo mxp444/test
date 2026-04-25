@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>多模态网络金融舆情风险监测系统</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <p>Realtime Multimodal Financial Opinion Monitor</p>
+      <h1>多模态网络金融舆情风险监测系统</h1>
+    </div>
+    <span id="healthStatus" class="status-pill">系统自检中</span>
+  </header>
+
+  <main class="layout">
+    <aside class="panel control-panel">
+      <div class="panel-head">
+        <h2>采集与分析</h2>
+      </div>
+      <div class="actions">
+        <button id="toggleBtn" class="primary">爬取</button>
+        <button id="refreshBtn">刷新</button>
+        <button id="analyzeOldBtn">补分析历史数据</button>
+      </div>
+      <div class="run-state">
+        <span id="runState" class="badge idle">未启动</span>
+        <p id="lastResult">暂无结果</p>
+        <p id="lastError" class="error-text"></p>
+      </div>
+      <div class="metrics">
+        <div><span>写入</span><strong id="metricInserted">0</strong></div>
+        <div><span>重复</span><strong id="metricSkipped">0</strong></div>
+        <div><span>未命中</span><strong id="metricUnmatched">0</strong></div>
+        <div><span>丢弃</span><strong id="metricDiscarded">0</strong></div>
+      </div>
+      <pre id="logs" class="logs">等待爬取任务启动...</pre>
+    </aside>
+
+    <section class="panel data-panel">
+      <div class="panel-head">
+        <h2>微博风险监测结果</h2>
+        <span id="count">未加载</span>
+      </div>
+      <div id="items" class="items"></div>
+    </section>
+  </main>
+
+  <script src="./app.js"></script>
+</body>
+</html>
