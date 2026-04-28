@@ -1,0 +1,4 @@
+flask
+pymongo
+requests
+aiotieba[speedup]>=4.6.0,<4.6.2

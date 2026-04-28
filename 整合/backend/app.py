@@ -4,6 +4,7 @@ import sys
 import threading
 from datetime import datetime
 from pathlib import Path
+from urllib.parse import quote, unquote
 from uuid import uuid4
 
 from flask import Flask, jsonify, request, send_file, send_from_directory
@@ -145,12 +146,24 @@ def get_collection():
 def media_url(path):
     if not path:
         return ""
-    return "/media/" + str(path).replace("\\", "/")
+    media_path = resolve_media_path(path)
+    try:
+        media_path = media_path.relative_to(CRAWLER_DIR)
+    except ValueError:
+        pass
+    return "/media/" + quote(str(media_path).replace("\\", "/"), safe="/:")
+
+
+def resolve_media_path(path):
+    candidate = Path(path)
+    if candidate.is_absolute():
+        return candidate
+    return CRAWLER_DIR / candidate
 
 
 def pick_first_image(item):
     for path in item.get("pics", []) or []:
-        candidate = Path(path)
+        candidate = resolve_media_path(path)
         if candidate.exists() and candidate.is_file() and candidate.suffix.lower() in ALLOWED_EXTENSIONS:
             return candidate
     return None
@@ -453,9 +466,7 @@ def analyze_unprocessed():
 
 @app.get("/media/<path:file_path>")
 def serve_media(file_path):
-    path = Path(file_path)
-    if not path.is_absolute():
-        path = CRAWLER_DIR / path
+    path = resolve_media_path(unquote(file_path))
     if not path.exists() or not path.is_file():
         return jsonify({"ok": False, "error": "file not found"}), 404
     return send_file(path)

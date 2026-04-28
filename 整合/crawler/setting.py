@@ -89,8 +89,8 @@ FURTHER_THRESHOLD = 46
 
 # MongoDB 默认写入整合项目专用库和集合，避免和旧爬虫项目混用。
 MONGO_URI = "mongodb://localhost:27017"
-MONGO_DATABASE = "integrated_weibo"
-MONGO_COLLECTION = "posts"
+MONGO_DATABASE = "test"
+MONGO_COLLECTION = "test_weibo"
 
 # 本地结果目录。图片会下载到 result/pic，MongoDB 的 pics 字段保存本地绝对路径。
 RESULT_DIR = "result"

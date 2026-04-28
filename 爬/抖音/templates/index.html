@@ -1,0 +1,597 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>抖音图文爬虫控制台</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, "Microsoft YaHei", sans-serif;
+      color: #18202c;
+      background: #eef2f7;
+    }
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      background: rgba(255, 255, 255, 0.94);
+      border-bottom: 1px solid #dfe5ee;
+      backdrop-filter: blur(10px);
+    }
+    .bar {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 16px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+    }
+    h1 {
+      margin: 0;
+      font-size: 22px;
+      font-weight: 700;
+    }
+    .brand {
+      display: grid;
+      gap: 3px;
+    }
+    .subtitle {
+      color: #64748b;
+      font-size: 13px;
+    }
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    button {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+      color: #18202c;
+      border-radius: 6px;
+      min-height: 38px;
+      padding: 0 14px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: transform 0.12s ease, border-color 0.12s ease, background 0.12s ease;
+    }
+    button:hover:not(:disabled) {
+      border-color: #94a3b8;
+      transform: translateY(-1px);
+    }
+    .icon {
+      width: 15px;
+      height: 15px;
+      display: inline-block;
+    }
+    .icon svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    button.primary {
+      background: #1769e0;
+      border-color: #1769e0;
+      color: white;
+    }
+    button.warning {
+      background: #b54708;
+      border-color: #b54708;
+      color: white;
+    }
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+    main {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 20px 18px;
+      display: grid;
+      grid-template-columns: 350px 1fr;
+      gap: 20px;
+    }
+    .panel {
+      background: #ffffff;
+      border: 1px solid #dde5ef;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 12px 28px rgba(15, 23, 42, 0.06);
+    }
+    .panel h2 {
+      margin: 0;
+      padding: 14px 16px;
+      font-size: 15px;
+      border-bottom: 1px solid #e6ebf2;
+    }
+    .status {
+      padding: 14px 16px;
+      display: grid;
+      gap: 10px;
+      font-size: 14px;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      width: fit-content;
+      min-height: 28px;
+      padding: 0 10px;
+      border-radius: 999px;
+      background: #edf5ff;
+      color: #1d4f91;
+      font-weight: 600;
+    }
+    .badge::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #1769e0;
+    }
+    .badge.paused::before {
+      background: #b54708;
+    }
+    .badge.idle::before {
+      background: #64748b;
+    }
+    .status-metrics {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-top: 4px;
+    }
+    .metric {
+      border: 1px solid #e6ebf2;
+      border-radius: 8px;
+      padding: 10px;
+      background: #fbfdff;
+    }
+    .metric span {
+      display: block;
+      color: #64748b;
+      font-size: 12px;
+      margin-bottom: 5px;
+    }
+    .metric strong {
+      font-size: 18px;
+      color: #18202c;
+    }
+    .logs {
+      margin: 0;
+      padding: 14px 16px;
+      height: 420px;
+      overflow: auto;
+      white-space: pre-wrap;
+      font-size: 12px;
+      line-height: 1.55;
+      background: #fbfdff;
+      color: #334155;
+      border-top: 1px solid #e6ebf2;
+    }
+    .log-placeholder {
+      margin: 0;
+      padding: 14px 16px;
+      height: 420px;
+      overflow: hidden;
+      border-top: 1px solid #e6ebf2;
+      background: #fbfdff;
+      display: grid;
+      align-content: start;
+      gap: 10px;
+    }
+    .list-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px;
+      border-bottom: 1px solid #e6ebf2;
+    }
+    .list-head h2 {
+      border: 0;
+      padding: 0;
+    }
+    .count {
+      color: #697386;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+    .items {
+      display: grid;
+      gap: 12px;
+      padding: 14px;
+    }
+    .weibo {
+      border: 1px solid #e1e8f0;
+      border-radius: 8px;
+      padding: 16px;
+      background: #ffffff;
+      box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04);
+    }
+    .empty-card {
+      min-height: 126px;
+      display: grid;
+      gap: 10px;
+    }
+    .placeholder-line,
+    .placeholder-image {
+      display: block;
+      border-radius: 6px;
+      background: #edf1f7;
+    }
+    .placeholder-line.short { width: 42%; height: 14px; }
+    .placeholder-line.mid { width: 68%; height: 14px; }
+    .placeholder-line.long { width: 100%; height: 16px; }
+    .placeholder-line.log { height: 13px; }
+    .placeholder-row {
+      display: grid;
+      grid-template-columns: repeat(3, 64px);
+      gap: 8px;
+    }
+    .placeholder-image {
+      width: 64px;
+      height: 64px;
+    }
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 12px;
+      color: #697386;
+      font-size: 13px;
+      margin-bottom: 8px;
+    }
+    .author-row {
+      display: grid;
+      grid-template-columns: 38px 1fr;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .avatar {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: #ffe8cc;
+      color: #9a3412;
+      font-weight: 700;
+      border: 1px solid #fed7aa;
+    }
+    .author-name {
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .text {
+      font-size: 15px;
+      line-height: 1.7;
+      margin-bottom: 12px;
+      word-break: break-word;
+    }
+    .text.collapsed {
+      display: -webkit-box;
+      -webkit-line-clamp: 4;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .expand-btn {
+      border: 0;
+      background: transparent;
+      color: #1769e0;
+      min-height: auto;
+      padding: 0;
+      margin: -4px 0 10px;
+      font-size: 14px;
+    }
+    .keywords {
+      color: #1769e0;
+      font-size: 13px;
+      display: inline-flex;
+      width: fit-content;
+      border: 1px solid #cfe1ff;
+      border-radius: 999px;
+      padding: 4px 9px;
+      background: #f4f8ff;
+    }
+    .pics {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .pics img {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      object-fit: cover;
+      border-radius: 6px;
+      border: 1px solid #e1e8f0;
+      background: #f2f4f8;
+    }
+    @media (max-width: 860px) {
+      .bar { align-items: flex-start; flex-direction: column; }
+      main { grid-template-columns: 1fr; }
+      .logs, .log-placeholder { height: 260px; }
+      .status-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="bar">
+      <div class="brand">
+        <h1>抖音图文爬虫控制台</h1>
+        <div class="subtitle">MongoDB 数据采集与内容预览</div>
+      </div>
+      <div class="actions">
+        <button class="primary" id="toggleBtn"><span class="icon" data-icon="play"></span><span>爬取</span></button>
+        <button id="showBtn"><span class="icon" data-icon="grid"></span><span>展示</span></button>
+        <button id="refreshBtn"><span class="icon" data-icon="refresh"></span><span>刷新</span></button>
+      </div>
+    </div>
+  </header>
+  <main>
+    <section class="panel">
+      <h2>任务状态</h2>
+      <div class="status">
+        <span class="badge" id="runState">未启动</span>
+        <div id="lastResult">暂无结果</div>
+        <div id="lastError"></div>
+        <div class="status-metrics">
+          <div class="metric"><span>写入</span><strong id="metricInserted">0</strong></div>
+          <div class="metric"><span>重复</span><strong id="metricSkipped">0</strong></div>
+          <div class="metric"><span>未命中</span><strong id="metricUnmatched">0</strong></div>
+          <div class="metric"><span>丢弃</span><strong id="metricDiscarded">0</strong></div>
+        </div>
+      </div>
+      <div id="logs" class="log-placeholder">
+        <span class="placeholder-line log long"></span>
+        <span class="placeholder-line log mid"></span>
+        <span class="placeholder-line log long"></span>
+        <span class="placeholder-line log short"></span>
+      </div>
+    </section>
+    <section class="panel">
+      <div class="list-head">
+        <h2>抖音图文数据</h2>
+        <span class="count" id="count">未加载</span>
+      </div>
+      <div class="items" id="items">
+        <article class="weibo empty-card">
+          <span class="placeholder-line short"></span>
+          <span class="placeholder-line long"></span>
+          <span class="placeholder-line mid"></span>
+          <div class="placeholder-row">
+            <span class="placeholder-image"></span>
+            <span class="placeholder-image"></span>
+            <span class="placeholder-image"></span>
+          </div>
+        </article>
+        <article class="weibo empty-card">
+          <span class="placeholder-line short"></span>
+          <span class="placeholder-line long"></span>
+          <span class="placeholder-line mid"></span>
+        </article>
+        <article class="weibo empty-card">
+          <span class="placeholder-line short"></span>
+          <span class="placeholder-line long"></span>
+          <span class="placeholder-line mid"></span>
+        </article>
+      </div>
+    </section>
+  </main>
+  <script>
+    const toggleBtn = document.querySelector("#toggleBtn");
+    const showBtn = document.querySelector("#showBtn");
+    const refreshBtn = document.querySelector("#refreshBtn");
+    const runState = document.querySelector("#runState");
+    const lastResult = document.querySelector("#lastResult");
+    const lastError = document.querySelector("#lastError");
+    const logs = document.querySelector("#logs");
+    const count = document.querySelector("#count");
+    const items = document.querySelector("#items");
+    const metricInserted = document.querySelector("#metricInserted");
+    const metricSkipped = document.querySelector("#metricSkipped");
+    const metricUnmatched = document.querySelector("#metricUnmatched");
+    const metricDiscarded = document.querySelector("#metricDiscarded");
+    let currentStatus = { running: false, paused: false };
+
+    const icons = {
+      play: `<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg>`,
+      pause: `<svg viewBox="0 0 24 24"><path d="M8 5v14"></path><path d="M16 5v14"></path></svg>`,
+      grid: `<svg viewBox="0 0 24 24"><path d="M4 4h7v7H4z"></path><path d="M13 4h7v7h-7z"></path><path d="M4 13h7v7H4z"></path><path d="M13 13h7v7h-7z"></path></svg>`,
+      refresh: `<svg viewBox="0 0 24 24"><path d="M20 6v6h-6"></path><path d="M4 18v-6h6"></path><path d="M19 12a7 7 0 0 0-12-5"></path><path d="M5 12a7 7 0 0 0 12 5"></path></svg>`
+    };
+
+    function setButtonIcon(button, name) {
+      const icon = button.querySelector(".icon");
+      if (icon) icon.innerHTML = icons[name] || "";
+    }
+
+    document.querySelectorAll(".icon").forEach(icon => {
+      icon.innerHTML = icons[icon.dataset.icon] || "";
+    });
+
+    async function postJson(url) {
+      const res = await fetch(url, { method: "POST" });
+      return res.json();
+    }
+
+    async function toggleCrawl() {
+      toggleBtn.disabled = true;
+      try {
+        if (currentStatus.running && !currentStatus.paused) {
+          await postJson("/api/crawl/pause");
+        } else {
+          await postJson("/api/crawl/start");
+        }
+        await loadStatus();
+      } finally {
+        toggleBtn.disabled = false;
+      }
+    }
+
+    async function loadStatus() {
+      const res = await fetch("/api/crawl/status");
+      const status = await res.json();
+      currentStatus = status;
+      if (status.running && status.paused) {
+        runState.textContent = "已暂停";
+        runState.className = "badge paused";
+        toggleBtn.textContent = "继续";
+        toggleBtn.className = "primary";
+        toggleBtn.innerHTML = `<span class="icon">${icons.play}</span><span>继续</span>`;
+      } else if (status.running) {
+        runState.textContent = "爬取中";
+        runState.className = "badge";
+        toggleBtn.textContent = "暂停";
+        toggleBtn.className = "warning";
+        toggleBtn.innerHTML = `<span class="icon">${icons.pause}</span><span>暂停</span>`;
+      } else {
+        runState.textContent = "空闲";
+        runState.className = "badge idle";
+        toggleBtn.textContent = "爬取";
+        toggleBtn.className = "primary";
+        toggleBtn.innerHTML = `<span class="icon">${icons.play}</span><span>爬取</span>`;
+      }
+      const stats = status.current_stats || status.last_result || {};
+      metricInserted.textContent = stats.inserted || 0;
+      metricSkipped.textContent = stats.skipped || 0;
+      metricUnmatched.textContent = stats.unmatched || 0;
+      metricDiscarded.textContent = stats.discarded || 0;
+      if (status.last_result) {
+        lastResult.textContent = `写入 ${status.last_result.inserted}，重复 ${status.last_result.skipped}，未命中 ${status.last_result.unmatched}，丢弃 ${status.last_result.discarded}`;
+      } else if (status.running) {
+        lastResult.textContent = `本轮实时统计：写入 ${stats.inserted || 0}，重复 ${stats.skipped || 0}，未命中 ${stats.unmatched || 0}，丢弃 ${stats.discarded || 0}`;
+      } else {
+        lastResult.textContent = "暂无结果";
+      }
+      lastError.textContent = status.last_error ? `错误：${status.last_error}` : "";
+      if (status.logs && status.logs.length) {
+        logs.className = "logs";
+        logs.textContent = status.logs.join("\n");
+        logs.scrollTop = logs.scrollHeight;
+      } else {
+        logs.className = "log-placeholder";
+        logs.innerHTML = `
+<span class="placeholder-line log long"></span>
+<span class="placeholder-line log mid"></span>
+<span class="placeholder-line log long"></span>
+<span class="placeholder-line log short"></span>
+        `;
+      }
+    }
+
+    function renderEmptyCards(message = "暂无有图有文的图文数据，在 setting.py 配置搜索关键词后点击爬取。") {
+      items.innerHTML = `
+        <article class="weibo empty-card">
+          <div class="meta"><span>${message}</span></div>
+          <span class="placeholder-line long"></span>
+          <span class="placeholder-line mid"></span>
+          <div class="placeholder-row">
+            <span class="placeholder-image"></span>
+            <span class="placeholder-image"></span>
+            <span class="placeholder-image"></span>
+          </div>
+        </article>
+        <article class="weibo empty-card">
+          <span class="placeholder-line short"></span>
+          <span class="placeholder-line long"></span>
+          <span class="placeholder-line mid"></span>
+        </article>
+        <article class="weibo empty-card">
+          <span class="placeholder-line short"></span>
+          <span class="placeholder-line long"></span>
+          <span class="placeholder-line mid"></span>
+        </article>
+      `;
+    }
+
+    function renderWeibo(item, index) {
+      const pics = (item.pics || []).map(pic => `<img src="${pic.url}" title="${pic.path}" loading="lazy">`).join("");
+      const matched = Array.isArray(item.matched_keywords) ? item.matched_keywords.join("，") : (item.keyword || "");
+      const text = escapeHtml(item.text || "");
+      const canCollapse = (item.text || "").length > 160;
+      const textId = `text-${index}`;
+      const initial = (item.screen_name || "抖").trim().slice(0, 1);
+      return `
+        <article class="weibo">
+          <div class="author-row">
+            <div class="avatar">${escapeHtml(initial)}</div>
+            <div>
+              <div class="author-name">${escapeHtml(item.screen_name || "未知用户")}</div>
+              <div class="meta">
+                <span>${item.created_at || ""}</span>
+                <span>${escapeHtml(item.source || "")}</span>
+              </div>
+            </div>
+          </div>
+          <div class="text ${canCollapse ? "collapsed" : ""}" id="${textId}">${text}</div>
+          ${canCollapse ? `<button class="expand-btn" data-target="${textId}">展开</button>` : ""}
+          <div class="keywords">命中：${escapeHtml(matched || "无")}</div>
+          ${pics ? `<div class="pics">${pics}</div>` : ""}
+        </article>
+      `;
+    }
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, char => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#039;"
+      }[char]));
+    }
+
+    async function loadWeibos() {
+      const res = await fetch("/api/weibos");
+      const data = await res.json();
+      if (!data.ok) {
+        count.textContent = "数据库读取失败";
+        renderEmptyCards(data.error || "数据库读取失败");
+        return;
+      }
+      count.textContent = `共 ${data.total || 0} 条，显示最新 ${data.items ? data.items.length : 0} 条`;
+      const list = data.items || [];
+      if (!list.length) {
+        renderEmptyCards();
+        return;
+      }
+      items.innerHTML = list.map(renderWeibo).join("");
+    }
+
+    items.addEventListener("click", event => {
+      const button = event.target.closest(".expand-btn");
+      if (!button) return;
+      const text = document.getElementById(button.dataset.target);
+      if (!text) return;
+      const collapsed = text.classList.toggle("collapsed");
+      button.textContent = collapsed ? "展开" : "收起";
+    });
+
+    async function refreshAll() {
+      await loadStatus();
+      await loadWeibos();
+    }
+
+    toggleBtn.addEventListener("click", toggleCrawl);
+    showBtn.addEventListener("click", loadWeibos);
+    refreshBtn.addEventListener("click", refreshAll);
+
+    refreshAll();
+    setInterval(refreshAll, 10000);
+  </script>
+</body>
+</html>

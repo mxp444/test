@@ -19,6 +19,13 @@ BASE_URL = "https://s.weibo.com"
 PROJECT_DIR = Path(__file__).resolve().parent
 
 
+def resolve_crawler_path(value):
+    path = Path(value)
+    if path.is_absolute():
+        return path
+    return PROJECT_DIR / path
+
+
 def convert_weibo_type(value):
     return {
         0: "&typeall=1",
@@ -45,9 +52,7 @@ def read_keywords(value):
     if isinstance(value, (list, tuple)):
         keywords = [str(item).strip() for item in value if str(item).strip()]
     else:
-        path = Path(value)
-        if not path.is_absolute():
-            path = Path(__file__).resolve().parent / path
+        path = resolve_crawler_path(value)
         with path.open("r", encoding="utf-8-sig") as file:
             keywords = [line.strip() for line in file if line.strip()]
 
@@ -64,9 +69,7 @@ def read_plain_keywords(value):
     if isinstance(value, (list, tuple)):
         return [str(item).strip() for item in value if str(item).strip()]
 
-    path = Path(value)
-    if not path.is_absolute():
-        path = PROJECT_DIR / path
+    path = resolve_crawler_path(value)
     with path.open("r", encoding="utf-8-sig") as file:
         return [line.strip() for line in file if line.strip()]
 
@@ -212,10 +215,8 @@ def match_filter_keywords(item, filter_keywords):
 
 
 def get_pic_dir():
-    result_dir = Path(getattr(setting, "RESULT_DIR", "result"))
+    result_dir = resolve_crawler_path(getattr(setting, "RESULT_DIR", "result"))
     pic_dir = Path(getattr(setting, "PIC_DIR", "pic"))
-    if not result_dir.is_absolute():
-        result_dir = PROJECT_DIR / result_dir
     if not pic_dir.is_absolute():
         pic_dir = result_dir / pic_dir
     pic_dir.mkdir(parents=True, exist_ok=True)
@@ -357,7 +358,8 @@ def parse_one_weibo(card, crawl_keyword):
 
 class SeenStore:
     def __init__(self, file_name):
-        self.path = Path(__file__).resolve().parent / file_name
+        self.path = resolve_crawler_path(file_name)
+        self.path.parent.mkdir(parents=True, exist_ok=True)
         self.ids = set()
         if self.path.exists():
             with self.path.open("r", encoding="utf-8") as file:
