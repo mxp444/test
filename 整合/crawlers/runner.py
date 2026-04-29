@@ -69,7 +69,19 @@ def load_module(module_name, file_path):
     return module
 
 
-def run_platform(platform, *, controller, log, progress, item_callback, mongo_uri, mongo_database, mongo_collection=None, max_items=None):
+def run_platform(
+    platform,
+    *,
+    controller,
+    log,
+    progress,
+    item_callback,
+    mongo_uri,
+    mongo_database,
+    mongo_collection=None,
+    max_items=None,
+    setting_overrides=None,
+):
     info = PLATFORMS[platform]
     crawler_dir = info["dir"]
     entry_file = crawler_dir / info["entry"]
@@ -84,6 +96,8 @@ def run_platform(platform, *, controller, log, progress, item_callback, mongo_ur
             setting.MONGO_COLLECTION = mongo_collection or info["collection"]
             if max_items is not None:
                 setting.MAX_ITEMS_PER_RUN = max(0, int(max_items))
+            for key, value in (setting_overrides or {}).items():
+                setattr(setting, key, value)
 
             module = load_module(f"integrated_{platform}_crawler", entry_file)
             run_crawler = getattr(module, "run_crawler", None)

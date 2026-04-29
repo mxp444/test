@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
+import copy
 import importlib.util
+import json
 import os
 import sys
 import threading
@@ -19,6 +21,8 @@ from werkzeug.utils import secure_filename
 BASE_DIR = Path(__file__).resolve().parents[1]
 FRONTEND_DIR = BASE_DIR / "frontend"
 UPLOAD_DIR = BASE_DIR / "backend" / "uploads"
+PLATFORM_SETTINGS_FILE = BASE_DIR / "backend" / "platform_settings.json"
+WATCHLIST_FILE = BASE_DIR / "backend" / "watchlist.json"
 ENGINE_FILE = BASE_DIR / "多模态融合分析.py"
 CRAWLER_DIR = BASE_DIR / "crawler"
 CRAWLERS_DIR = BASE_DIR / "crawlers"
@@ -30,6 +34,15 @@ LOAD_WORD_VECTOR_MODEL = (
     else LOAD_WORD_VECTOR_MODEL_ENV.strip().lower() not in {"0", "false", "no", "off"}
 )
 CRAWL_TOTAL_TARGET = max(1, int(os.getenv("CRAWL_TOTAL_TARGET", "200")))
+
+KNOWN_EXTRA_PLATFORMS = {
+    "bilibili": {"label": "Bilibili", "description": "视频社区，待接入爬虫"},
+    "kuaishou": {"label": "快手", "description": "短视频平台，待接入爬虫"},
+    "zhihu": {"label": "知乎", "description": "问答社区，待接入爬虫"},
+    "xueqiu": {"label": "雪球", "description": "投资社区，待接入爬虫"},
+    "eastmoney": {"label": "东方财富", "description": "财经社区，待接入爬虫"},
+    "telegram": {"label": "Telegram", "description": "社群频道，待接入爬虫"},
+}
 
 for path in (BASE_DIR, CRAWLER_DIR, CRAWLERS_DIR):
     if str(path) not in sys.path:
@@ -54,6 +67,370 @@ app = Flask(__name__, static_folder=str(FRONTEND_DIR), static_url_path="")
 _engine = None
 _engine_lock = threading.RLock()
 _runtime_ready = False
+_platform_defaults_cache = {}
+
+
+def _read_text_lines(value):
+    if isinstance(value, (list, tuple, set)):
+        return [str(item).strip() for item in value if str(item).strip()]
+    if not value:
+        return []
+    return [line.strip() for line in str(value).splitlines() if line.strip()]
+
+
+def _safe_int(value, default, minimum=0, maximum=None):
+    try:
+        result = int(value)
+    except Exception:
+        result = default
+    result = max(minimum, result)
+    if maximum is not None:
+        result = min(maximum, result)
+    return result
+
+
+def _safe_bool(value, default=False):
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return default
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def load_platform_settings_store():
+    if not PLATFORM_SETTINGS_FILE.exists():
+        return {"added_platforms": [], "platforms": {}}
+    try:
+        data = json.loads(PLATFORM_SETTINGS_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        return {"added_platforms": [], "platforms": {}}
+    return {
+        "added_platforms": [str(item).strip() for item in data.get("added_platforms", []) if str(item).strip()],
+        "platforms": data.get("platforms", {}) if isinstance(data.get("platforms"), dict) else {},
+    }
+
+
+def save_platform_settings_store(data):
+    PLATFORM_SETTINGS_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def load_watchlist_store():
+    if not WATCHLIST_FILE.exists():
+        return []
+    try:
+        data = json.loads(WATCHLIST_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+    if not isinstance(data, list):
+        return []
+    items = []
+    for entry in data:
+        if not isinstance(entry, dict):
+            continue
+        doc_id = str(entry.get("id", "")).strip()
+        if not doc_id:
+            continue
+        items.append(
+            {
+                "id": doc_id,
+                "added_at": str(entry.get("added_at", "")).strip() or datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            }
+        )
+    return items
+
+
+def save_watchlist_store(items):
+    WATCHLIST_FILE.write_text(json.dumps(items, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def add_watchlist_item(doc_id):
+    doc_id = str(doc_id or "").strip()
+    if not doc_id:
+        raise ValueError("missing id")
+    items = load_watchlist_store()
+    if any(entry["id"] == doc_id for entry in items):
+        return False
+    items.insert(0, {"id": doc_id, "added_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
+    save_watchlist_store(items)
+    return True
+
+
+def remove_watchlist_item(doc_id):
+    doc_id = str(doc_id or "").strip()
+    items = load_watchlist_store()
+    next_items = [entry for entry in items if entry["id"] != doc_id]
+    changed = len(next_items) != len(items)
+    if changed:
+        save_watchlist_store(next_items)
+    return changed
+
+
+def load_watchlist_items(limit=100):
+    watchlist = load_watchlist_store()
+    items = []
+    added_map = {entry["id"]: entry.get("added_at", "") for entry in watchlist}
+    for entry in watchlist[:limit]:
+        doc = find_analyzed_item(entry["id"])
+        if not doc:
+            continue
+        serialized = serialize_doc(doc)
+        serialized["watch_added_at"] = added_map.get(serialized["_id"], "") or added_map.get(serialized["id"], "") or entry.get("added_at", "")
+        items.append(serialized)
+    return items, len(watchlist)
+
+
+def extract_platform_defaults(platform):
+    if platform in _platform_defaults_cache:
+        return copy.deepcopy(_platform_defaults_cache[platform])
+    info = PLATFORMS[platform]
+    with crawler_import_context(info["dir"]):
+        setting_module = load_module(f"default_setting_{platform}", info["dir"] / "setting.py")
+        if platform == "weibo":
+            headers = copy.deepcopy(getattr(setting_module, "DEFAULT_REQUEST_HEADERS", {}) or {})
+            defaults = {
+                "id": platform,
+                "label": platform_label(platform),
+                "available": True,
+                "added": False,
+                "description": "已接入爬虫",
+                "selected": platform == "weibo",
+                "headers": headers,
+                "cookie": str(headers.get("cookie", "")),
+                "keywords": _read_text_lines(getattr(setting_module, "KEYWORD_LIST", [])),
+                "discovery_keywords": _read_text_lines(getattr(setting_module, "CRAWL_KEYWORD_LIST", [])),
+                "recent_days": _safe_int(getattr(setting_module, "RECENT_DAYS", 60), 60, minimum=1, maximum=3650),
+                "max_pages": _safe_int(getattr(setting_module, "MAX_PAGES", 50), 50, minimum=1, maximum=500),
+                "require_images": _safe_bool(getattr(setting_module, "REQUIRE_IMAGES", True), True),
+            }
+            _platform_defaults_cache[platform] = defaults
+            return copy.deepcopy(defaults)
+        if platform == "douyin":
+            defaults = {
+                "id": platform,
+                "label": platform_label(platform),
+                "available": True,
+                "added": False,
+                "description": "已接入爬虫",
+                "selected": False,
+                "cookie": str(getattr(setting_module, "DOUYIN_COOKIE", "")),
+                "keywords": _read_text_lines(getattr(setting_module, "KEYWORD_LIST", [])),
+                "discovery_keywords": _read_text_lines(getattr(setting_module, "DOUYIN_SEARCH_KEYWORD_LIST", [])),
+                "max_pages": _safe_int(getattr(setting_module, "MAX_PAGES_PER_KEYWORD", 1), 1, minimum=1, maximum=100),
+                "require_images": _safe_bool(getattr(setting_module, "REQUIRE_IMAGES", True), True),
+            }
+            _platform_defaults_cache[platform] = defaults
+            return copy.deepcopy(defaults)
+        if platform == "tieba":
+            defaults = {
+                "id": platform,
+                "label": platform_label(platform),
+                "available": True,
+                "added": False,
+                "description": "已接入爬虫",
+                "selected": False,
+                "cookie": "",
+                "keywords": _read_text_lines(getattr(setting_module, "KEYWORD_LIST", [])),
+                "forums": _read_text_lines(getattr(setting_module, "FORUM_LIST", [])),
+                "max_pages": _safe_int(getattr(setting_module, "MAX_PAGES_PER_FORUM", 100), 100, minimum=1, maximum=1000),
+                "require_images": _safe_bool(getattr(setting_module, "REQUIRE_IMAGES", True), True),
+            }
+            _platform_defaults_cache[platform] = defaults
+            return copy.deepcopy(defaults)
+        if platform == "xhs":
+            defaults = {
+                "id": platform,
+                "label": platform_label(platform),
+                "available": True,
+                "added": False,
+                "description": "已接入爬虫",
+                "selected": False,
+                "cookie": str(getattr(setting_module, "COOKIES", "")),
+                "keywords": _read_text_lines(getattr(setting_module, "KEYWORD_LIST", [])),
+                "max_pages": _safe_int(getattr(setting_module, "MAX_PAGES", 5), 5, minimum=1, maximum=100),
+                "note_time": _safe_int(getattr(setting_module, "NOTE_TIME", 0), 0, minimum=0, maximum=4),
+                "require_images": _safe_bool(getattr(setting_module, "REQUIRE_IMAGES", True), True),
+            }
+            _platform_defaults_cache[platform] = defaults
+            return copy.deepcopy(defaults)
+    raise KeyError(platform)
+
+
+def placeholder_platform_defaults(platform):
+    info = KNOWN_EXTRA_PLATFORMS.get(platform, {})
+    return {
+        "id": platform,
+        "label": info.get("label", platform),
+        "available": False,
+        "added": True,
+        "description": info.get("description", "待接入爬虫"),
+        "selected": False,
+        "cookie": "",
+        "keywords": [],
+        "discovery_keywords": [],
+        "forums": [],
+        "recent_days": 60,
+        "max_pages": 10,
+        "note_time": 0,
+        "require_images": True,
+    }
+
+
+def sanitize_platform_config(platform, payload, defaults):
+    payload = payload or {}
+    config = copy.deepcopy(defaults)
+    config["selected"] = _safe_bool(payload.get("selected"), defaults.get("selected", False))
+    config["cookie"] = str(payload.get("cookie", defaults.get("cookie", "")) or "").strip()
+    config["keywords"] = _read_text_lines(payload.get("keywords", defaults.get("keywords", [])))
+    config["discovery_keywords"] = _read_text_lines(payload.get("discovery_keywords", defaults.get("discovery_keywords", [])))
+    config["forums"] = _read_text_lines(payload.get("forums", defaults.get("forums", [])))
+    config["recent_days"] = _safe_int(payload.get("recent_days", defaults.get("recent_days", 60)), defaults.get("recent_days", 60), minimum=1, maximum=3650)
+    config["max_pages"] = _safe_int(payload.get("max_pages", defaults.get("max_pages", 10)), defaults.get("max_pages", 10), minimum=1, maximum=1000)
+    config["note_time"] = _safe_int(payload.get("note_time", defaults.get("note_time", 0)), defaults.get("note_time", 0), minimum=0, maximum=4)
+    config["require_images"] = _safe_bool(payload.get("require_images"), defaults.get("require_images", True))
+    config["description"] = str(payload.get("description", defaults.get("description", "")) or defaults.get("description", ""))
+    config["label"] = str(payload.get("label", defaults.get("label", platform)) or defaults.get("label", platform))
+    config["available"] = bool(defaults.get("available", False))
+    config["added"] = bool(defaults.get("added", False))
+    config["id"] = platform
+    config.pop("headers", None)
+    return config
+
+
+def build_platform_settings_payload():
+    store = load_platform_settings_store()
+    settings = {}
+    ordered_ids = list(PLATFORMS)
+    for platform in store.get("added_platforms", []):
+        if platform not in ordered_ids:
+            ordered_ids.append(platform)
+
+    for platform in ordered_ids:
+        defaults = extract_platform_defaults(platform) if platform in PLATFORMS else placeholder_platform_defaults(platform)
+        saved = store.get("platforms", {}).get(platform, {})
+        settings[platform] = sanitize_platform_config(platform, saved, defaults)
+
+    options = [
+        {
+            "id": platform,
+            "label": config["label"],
+            "available": config["available"],
+            "added": config["added"],
+            "selected": config["selected"],
+            "description": config["description"],
+        }
+        for platform, config in settings.items()
+    ]
+    known_platforms = [
+        {
+            "id": platform,
+            "label": info["label"],
+            "description": info["description"],
+            "added": platform in settings,
+        }
+        for platform, info in KNOWN_EXTRA_PLATFORMS.items()
+    ]
+    return {"platforms": settings, "options": options, "known_platforms": known_platforms}
+
+
+def persist_platform_settings(payload):
+    current = build_platform_settings_payload()
+    settings = current["platforms"]
+    added_platforms = []
+    for platform in payload.get("added_platforms", []):
+        key = str(platform).strip()
+        if key in KNOWN_EXTRA_PLATFORMS and key not in added_platforms:
+            added_platforms.append(key)
+    for platform in added_platforms:
+        settings.setdefault(platform, placeholder_platform_defaults(platform))
+
+    platform_payload = payload.get("platforms", {}) if isinstance(payload.get("platforms"), dict) else {}
+    for platform, defaults in list(settings.items()):
+        saved = platform_payload.get(platform, {})
+        settings[platform] = sanitize_platform_config(platform, saved, defaults)
+
+    retained_ids = list(PLATFORMS) + added_platforms
+
+    store = {
+        "added_platforms": added_platforms,
+        "platforms": {
+            platform: {
+                "selected": config["selected"],
+                "cookie": config["cookie"],
+                "keywords": config["keywords"],
+                "discovery_keywords": config["discovery_keywords"],
+                "forums": config["forums"],
+                "recent_days": config["recent_days"],
+                "max_pages": config["max_pages"],
+                "note_time": config["note_time"],
+                "require_images": config["require_images"],
+            }
+            for platform, config in settings.items()
+            if platform in retained_ids
+        },
+    }
+    save_platform_settings_store(store)
+    return build_platform_settings_payload()
+
+
+def get_platform_runtime_overrides(platform):
+    payload = build_platform_settings_payload()
+    config = copy.deepcopy(payload["platforms"].get(platform, {}))
+    if not config:
+        return {}
+    if platform == "weibo":
+        defaults = extract_platform_defaults(platform)
+        headers = copy.deepcopy(defaults.get("headers", {}))
+        headers["cookie"] = config.get("cookie", "")
+        return {
+            "DEFAULT_REQUEST_HEADERS": headers,
+            "KEYWORD_LIST": config.get("keywords", []),
+            "CRAWL_KEYWORD_LIST": config.get("discovery_keywords", []),
+            "RECENT_DAYS": config.get("recent_days", 60),
+            "MAX_PAGES": config.get("max_pages", 50),
+            "REQUIRE_IMAGES": config.get("require_images", True),
+        }
+    if platform == "douyin":
+        return {
+            "DOUYIN_COOKIE": config.get("cookie", ""),
+            "KEYWORD_LIST": config.get("keywords", []),
+            "DOUYIN_SEARCH_KEYWORD_LIST": config.get("discovery_keywords", []),
+            "MAX_PAGES_PER_KEYWORD": config.get("max_pages", 1),
+            "REQUIRE_IMAGES": config.get("require_images", True),
+        }
+    if platform == "tieba":
+        return {
+            "KEYWORD_LIST": config.get("keywords", []),
+            "FORUM_LIST": config.get("forums", []),
+            "MAX_PAGES_PER_FORUM": config.get("max_pages", 100),
+            "REQUIRE_IMAGES": config.get("require_images", True),
+        }
+    if platform == "xhs":
+        return {
+            "COOKIES": config.get("cookie", ""),
+            "KEYWORD_LIST": config.get("keywords", []),
+            "MAX_PAGES": config.get("max_pages", 5),
+            "NOTE_TIME": config.get("note_time", 0),
+            "REQUIRE_IMAGES": config.get("require_images", True),
+        }
+    return {}
+
+
+def configured_platform_options():
+    return build_platform_settings_payload()["options"]
+
+
+def configured_available_platforms(values=None):
+    options = {item["id"]: item for item in configured_platform_options()}
+    selected = []
+    if values:
+        for value in values:
+            key = str(value).strip()
+            if options.get(key, {}).get("available") and key not in selected:
+                selected.append(key)
+    if selected:
+        return selected
+    defaults = [item["id"] for item in options.values() if item.get("available") and item.get("selected")]
+    return defaults or ["weibo"]
 
 
 def load_analyzer_class():
@@ -503,6 +880,8 @@ def run_weibo_diagnostic():
     info = PLATFORMS["weibo"]
     with crawler_import_context(info["dir"]):
         setting_module = load_module("setting", info["dir"] / "setting.py")
+        for key, value in get_platform_runtime_overrides("weibo").items():
+            setattr(setting_module, key, value)
         scrpy_module = load_module("diagnostic_weibo_scrpy", info["dir"] / info["entry"])
 
         crawl_source = getattr(setting_module, "CRAWL_KEYWORD_LIST", []) or setting_module.KEYWORD_LIST
@@ -544,6 +923,8 @@ def run_xhs_diagnostic():
     info = PLATFORMS["xhs"]
     with crawler_import_context(info["dir"]):
         setting_module = load_module("setting", info["dir"] / "setting.py")
+        for key, value in get_platform_runtime_overrides("xhs").items():
+            setattr(setting_module, key, value)
         main_module = load_module("diagnostic_xhs_main", info["dir"] / info["entry"])
 
         keywords = getattr(setting_module, "KEYWORD_LIST", []) or []
@@ -618,7 +999,7 @@ class CrawlTask:
         self.last_result = None
         self.current_stats = {"inserted": 0, "skipped": 0, "unmatched": 0, "discarded": 0}
         self.last_error = ""
-        self.selected_platforms = ["weibo"]
+        self.selected_platforms = configured_available_platforms()
         self.platform_item_limit = CRAWL_TOTAL_TARGET
         self.current_platform = ""
         self.platform_results = {}
@@ -635,7 +1016,7 @@ class CrawlTask:
                 self.controller.resume()
                 self.add_log("已继续爬取。")
                 return "resumed"
-            self.selected_platforms = normalize_platforms(selected_platforms)
+            self.selected_platforms = configured_available_platforms(selected_platforms)
             self.platform_item_limit = max(1, (CRAWL_TOTAL_TARGET + len(self.selected_platforms) - 1) // len(self.selected_platforms))
             self.current_platform = ""
             self.platform_results = {}
@@ -722,6 +1103,7 @@ class CrawlTask:
                 mongo_database=setting.MONGO_DATABASE,
                 mongo_collection=platform_collection(platform),
                 max_items=self.platform_item_limit,
+                setting_overrides=get_platform_runtime_overrides(platform),
             )
             self.update_platform_stats(platform, platform_result or {})
             self.add_log(f"{label} 爬取完成。")
@@ -766,7 +1148,7 @@ class CrawlTask:
                 "platform_item_limit": self.platform_item_limit,
                 "current_platform": self.current_platform,
                 "platform_results": dict(self.platform_results),
-                "platform_options": platform_options(),
+                "platform_options": configured_platform_options(),
                 "last_result": self.last_result,
                 "current_stats": dict(self.current_stats),
                 "last_error": self.last_error,
@@ -840,6 +1222,53 @@ def pause_crawl():
 @app.get("/api/crawl/status")
 def crawl_status():
     return jsonify(task.status())
+
+
+@app.get("/api/platform-settings")
+def get_platform_settings():
+    payload = build_platform_settings_payload()
+    return jsonify({"ok": True, **payload})
+
+
+@app.post("/api/platform-settings")
+def save_platform_settings():
+    payload = request.get_json(silent=True) or {}
+    saved = persist_platform_settings(payload)
+    return jsonify({"ok": True, **saved})
+
+
+@app.get("/api/watchlist")
+def get_watchlist():
+    try:
+        limit = max(1, min(int(request.args.get("limit", 100)), 300))
+        items, total = load_watchlist_items(limit)
+        return jsonify({"ok": True, "total": total, "items": items})
+    except Exception as exc:
+        return jsonify({"ok": False, "total": 0, "items": [], "error": str(exc)}), 500
+
+
+@app.post("/api/watchlist")
+def add_watchlist():
+    payload = request.get_json(silent=True) or {}
+    doc_id = payload.get("id")
+    try:
+        created = add_watchlist_item(doc_id)
+        items, total = load_watchlist_items(100)
+        return jsonify({"ok": True, "created": created, "total": total, "items": items})
+    except ValueError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
+@app.delete("/api/watchlist/<doc_id>")
+def delete_watchlist_item(doc_id):
+    try:
+        removed = remove_watchlist_item(doc_id)
+        items, total = load_watchlist_items(100)
+        return jsonify({"ok": True, "removed": removed, "total": total, "items": items})
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
 
 
 @app.get("/api/items")

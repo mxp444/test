@@ -7,58 +7,193 @@
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
-  <header class="topbar">
-    <div class="brand-block">
-      <p>Realtime Multimodal Financial Opinion Monitor</p>
-      <h1>多模态网络金融舆情风险监测系统</h1>
+  <header class="site-header">
+    <div class="site-brand">
+      <div class="brand-badge">MR</div>
+      <div class="brand-copy">
+        <p>Realtime Multimodal Financial Opinion Monitor</p>
+        <h1>多模态网络金融舆情风险监测系统</h1>
+      </div>
     </div>
-    <div class="topbar-side">
+    <div class="header-status">
       <span id="healthStatus" class="status-pill">系统自检中</span>
     </div>
   </header>
 
-  <main class="layout">
-    <aside class="panel control-panel">
-      <div class="panel-head">
-        <div>
-          <h2>采集与分析</h2>
-          <p class="panel-caption">Crawl Console</p>
+  <main class="app-shell">
+    <aside class="sidebar">
+      <section class="sidebar-card nav-card">
+        <a class="nav-link is-active" href="#" data-view="home">监测首页</a>
+        <a class="nav-link" href="#" data-view="settings">平台设置</a>
+        <a class="nav-link" href="#" data-view="watch">追踪观测</a>
+        <a class="nav-link" href="#" data-view="logs">运行日志</a>
+        <a class="nav-link" href="#" data-view="status">系统状态</a>
+      </section>
+
+      <section class="sidebar-card">
+        <div class="sidebar-head">
+          <h2>采集平台</h2>
+          <span>Source</span>
         </div>
-      </div>
-      <div class="platform-select" aria-label="选择采集平台">
-        <label><input type="checkbox" name="platform" value="weibo" checked> 微博</label>
-        <label><input type="checkbox" name="platform" value="douyin"> 抖音</label>
-        <label><input type="checkbox" name="platform" value="tieba"> 百度贴吧</label>
-        <label><input type="checkbox" name="platform" value="xhs"> 小红书</label>
-      </div>
-      <div class="actions">
-        <button id="toggleBtn" class="primary">爬取</button>
-        <button id="refreshBtn">刷新</button>
-        <button id="analyzeOldBtn">补分析历史数据</button>
-      </div>
-      <div class="run-state">
-        <span id="runState" class="badge idle">未启动</span>
-        <p id="lastResult">暂无结果</p>
-        <p id="lastError" class="error-text"></p>
-      </div>
-      <div class="metrics">
-        <div><span>写入</span><strong id="metricInserted">0</strong></div>
-        <div><span>重复</span><strong id="metricSkipped">0</strong></div>
-        <div><span>未命中</span><strong id="metricUnmatched">0</strong></div>
-        <div><span>丢弃</span><strong id="metricDiscarded">0</strong></div>
-      </div>
-      <pre id="logs" class="logs">等待爬取任务启动...</pre>
+        <div id="platformSelector" class="platform-select" aria-label="选择采集平台"></div>
+      </section>
+
+      <section class="sidebar-card">
+        <div class="sidebar-head">
+          <h2>任务控制</h2>
+          <span>Control</span>
+        </div>
+        <div class="actions">
+          <button id="toggleBtn" class="primary">爬取</button>
+          <button id="refreshBtn">刷新</button>
+          <button id="analyzeOldBtn">补分析历史数据</button>
+        </div>
+        <div class="run-state">
+          <span id="runState" class="badge idle">未启动</span>
+          <p id="lastResult">暂无结果</p>
+          <p id="lastError" class="error-text"></p>
+        </div>
+      </section>
+
+      <section class="sidebar-card metrics-card">
+        <div class="sidebar-head">
+          <h2>采集统计</h2>
+          <span>Metrics</span>
+        </div>
+        <div class="metrics">
+          <div><span>写入</span><strong id="metricInserted">0</strong></div>
+          <div><span>重复</span><strong id="metricSkipped">0</strong></div>
+          <div><span>未命中</span><strong id="metricUnmatched">0</strong></div>
+          <div><span>丢弃</span><strong id="metricDiscarded">0</strong></div>
+        </div>
+      </section>
     </aside>
 
-    <section class="panel data-panel">
-      <div class="panel-head">
-        <div>
-          <h2>多平台风险监测结果</h2>
-          <p class="panel-caption">Analysis Feed</p>
+    <section class="content-column">
+      <section id="homeView" class="view-panel is-active">
+        <div class="channel-strip">
+          <button class="channel-pill is-active" type="button" data-filter="all">全部</button>
+          <button class="channel-pill" type="button" data-filter="weibo">微博</button>
+          <button class="channel-pill" type="button" data-filter="douyin">抖音</button>
+          <button class="channel-pill" type="button" data-filter="tieba">贴吧</button>
+          <button class="channel-pill" type="button" data-filter="xhs">小红书</button>
+          <button class="channel-pill" type="button" data-filter="high-risk">中高风险</button>
+          <button class="channel-pill" type="button" data-filter="analyzed">已分析</button>
+          <button class="channel-pill" type="button" data-filter="recent">近两个月</button>
         </div>
-        <span id="count">未加载</span>
-      </div>
-      <div id="items" class="items"></div>
+
+        <section class="feed-panel">
+          <div class="feed-head">
+            <div>
+              <p class="feed-eyebrow">精选监测流</p>
+              <h2>多平台风险监测结果</h2>
+            </div>
+            <span id="count">未加载</span>
+          </div>
+          <div id="items" class="items"></div>
+        </section>
+      </section>
+
+      <section id="settingsView" class="view-panel">
+        <section class="settings-panel">
+          <div class="settings-head">
+            <div>
+              <p class="feed-eyebrow">平台设置</p>
+              <h2>采集配置中心</h2>
+            </div>
+            <button id="saveSettingsBtn" class="primary" type="button">保存设置</button>
+          </div>
+          <p class="settings-summary">这里可以统一维护平台 Cookie、关键词列表、时间范围和分页策略。保存后，前端启动爬虫会按这里的最新配置运行。</p>
+          <section class="settings-block">
+            <div class="settings-block-head">
+              <h3>扩展平台</h3>
+              <span>可先加入待接入平台，后续补爬虫即可启用</span>
+            </div>
+            <div id="knownPlatformCatalog" class="catalog-grid"></div>
+          </section>
+          <section class="settings-block">
+            <div class="settings-block-head">
+              <h3>已配置平台</h3>
+              <span id="settingsStatusText">正在加载配置…</span>
+            </div>
+            <div class="settings-switcher">
+              <label for="platformSettingsSelect">当前查看</label>
+              <select id="platformSettingsSelect"></select>
+            </div>
+            <div id="platformSettingsList" class="settings-list"></div>
+          </section>
+        </section>
+      </section>
+
+      <section id="watchView" class="view-panel">
+        <section class="feed-panel">
+          <div class="feed-head">
+            <div>
+              <p class="feed-eyebrow">追踪观测</p>
+              <h2>重点帖子持续观测列表</h2>
+            </div>
+            <span id="watchCount">未加载</span>
+          </div>
+          <div id="watchItems" class="items"></div>
+        </section>
+      </section>
+
+      <section id="logsView" class="view-panel">
+        <section class="feed-panel">
+          <div class="feed-head">
+            <div>
+              <p class="feed-eyebrow">运行日志</p>
+              <h2>采集与分析实时控制台</h2>
+            </div>
+            <span id="logsMeta">等待任务启动</span>
+          </div>
+          <pre id="logsPanel" class="logs logs-page">等待爬取任务启动...</pre>
+        </section>
+      </section>
+
+      <section id="statusView" class="view-panel">
+        <section class="feed-panel status-page">
+          <div class="feed-head">
+            <div>
+              <p class="feed-eyebrow">系统状态</p>
+              <h2>模型引擎与任务运行状态</h2>
+            </div>
+            <span id="statusMeta">正在加载</span>
+          </div>
+          <div class="status-grid page-status-grid">
+            <div class="status-stat">
+              <span>健康检查</span>
+              <strong id="healthStatusMirror">在线</strong>
+            </div>
+            <div class="status-stat">
+              <span>当前任务</span>
+              <strong id="runStateMirror">空闲</strong>
+            </div>
+            <div class="status-stat">
+              <span>模型引擎</span>
+              <strong id="engineStatusText">检测中</strong>
+            </div>
+            <div class="status-stat">
+              <span>已选平台</span>
+              <strong id="selectedPlatformsText">-</strong>
+            </div>
+          </div>
+          <div class="system-sections">
+            <section class="status-card-block">
+              <h3>组件状态</h3>
+              <div id="componentStatusList" class="component-status-list"></div>
+            </section>
+            <section class="status-card-block">
+              <h3>任务摘要</h3>
+              <div id="taskSummaryList" class="component-status-list"></div>
+            </section>
+            <section class="status-card-block">
+              <h3>初始化告警</h3>
+              <div id="initErrorsList" class="status-note-list"></div>
+            </section>
+          </div>
+        </section>
+      </section>
     </section>
   </main>
 

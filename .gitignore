@@ -65,6 +65,12 @@ requests.seen
 seen_ids.txt
 */seen_ids.txt
 **/seen_ids.txt
+platform_settings.json
+*/platform_settings.json
+**/platform_settings.json
+watchlist.json
+*/watchlist.json
+**/watchlist.json
 微博爬虫/结果文件/
 微博爬虫/weibo/结果文件/
 
