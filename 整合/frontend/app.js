@@ -12,9 +12,11 @@ const metricInserted = document.querySelector("#metricInserted");
 const metricSkipped = document.querySelector("#metricSkipped");
 const metricUnmatched = document.querySelector("#metricUnmatched");
 const metricDiscarded = document.querySelector("#metricDiscarded");
+const platformInputs = Array.from(document.querySelectorAll("input[name='platform']"));
 
 let currentStatus = { running: false, paused: false };
 const openDetailIds = new Set();
+const expandedTextIds = new Set();
 
 checkHealth();
 refreshAll();
@@ -38,9 +40,19 @@ async function checkHealth() {
   }
 }
 
-async function postJson(url) {
-  const res = await fetch(url, { method: "POST" });
+async function postJson(url, body) {
+  const options = { method: "POST" };
+  if (body !== undefined) {
+    options.headers = { "Content-Type": "application/json" };
+    options.body = JSON.stringify(body);
+  }
+  const res = await fetch(url, options);
   return res.json();
+}
+
+function selectedPlatforms() {
+  const values = platformInputs.filter((input) => input.checked).map((input) => input.value);
+  return values.length ? values : ["weibo"];
 }
 
 async function toggleCrawl() {
@@ -49,7 +61,7 @@ async function toggleCrawl() {
     if (currentStatus.running && !currentStatus.paused) {
       await postJson("/api/crawl/pause");
     } else {
-      await postJson("/api/crawl/start");
+      await postJson("/api/crawl/start", { platforms: selectedPlatforms() });
     }
     await loadStatus();
   } finally {
@@ -64,7 +76,7 @@ async function analyzeOldItems() {
     const data = await postJson("/api/analyze/unprocessed?limit=20");
     if (!data.ok) throw new Error((data.errors || ["补分析失败"])[0]);
     await loadWeibos();
-    alert(`已处理 ${data.processed || 0} 条历史微博。`);
+    alert(`已处理 ${data.processed || 0} 条历史数据。`);
   } catch (error) {
     alert(error.message);
   } finally {
@@ -96,6 +108,12 @@ async function loadStatus() {
   }
 
   const stats = status.current_stats || status.last_result || {};
+  platformInputs.forEach((input) => {
+    input.disabled = Boolean(status.running);
+    if (status.running) {
+      input.checked = (status.selected_platforms || selectedPlatforms()).includes(input.value);
+    }
+  });
   metricInserted.textContent = stats.inserted || 0;
   metricSkipped.textContent = stats.skipped || 0;
   metricUnmatched.textContent = stats.unmatched || 0;
@@ -115,7 +133,7 @@ async function loadStatus() {
 }
 
 async function loadWeibos() {
-  const res = await fetch("/api/weibos?limit=100");
+  const res = await fetch("/api/items?limit=100");
   const data = await res.json();
   if (!data.ok) {
     count.textContent = "数据库读取失败";
@@ -125,7 +143,7 @@ async function loadWeibos() {
 
   count.textContent = `共 ${data.total || 0} 条，已分析 ${data.analyzed || 0} 条`;
   const list = data.items || [];
-  items.innerHTML = list.length ? list.map(renderWeibo).join("") : emptyCard("暂无数据，点击爬取后会在这里展示微博内容。");
+  items.innerHTML = list.length ? list.map(renderWeibo).join("") : emptyCard("暂无数据，点击爬取后会在这里展示多平台内容。");
 }
 
 async function refreshAll() {
@@ -141,6 +159,13 @@ function renderWeibo(item) {
   const pics = (item.pics || []).map((pic) => `<img src="${pic.url}" title="${escapeHtml(pic.path)}" loading="lazy">`).join("");
   const matched = Array.isArray(item.matched_keywords) ? item.matched_keywords.join("，") : (item.keyword || "");
   const scoreClass = Number.isFinite(score) ? scoreLevelClass(score) : "pending";
+  const platformName = item.platform_name || platformLabel(item.platform);
+  const itemId = String(item._id || item.id || "");
+  const shouldCollapse = String(item.text || "").length > 140;
+  const isExpanded = expandedTextIds.has(itemId);
+  const textToggle = shouldCollapse
+    ? `<button class="text-toggle" type="button" data-text-toggle="${escapeHtml(itemId)}">${isExpanded ? "收起" : "展开全部"}</button>`
+    : "";
 
   return `
     <article class="weibo">
@@ -148,6 +173,7 @@ function renderWeibo(item) {
         <div>
           <strong>${escapeHtml(item.screen_name || "未知用户")}</strong>
           <div class="meta">
+            <span class="platform-chip">${escapeHtml(platformName || "未知平台")}</span>
             <span>${escapeHtml(item.created_at || "")}</span>
             <span>${escapeHtml(item.source || "")}</span>
             <span>命中：${escapeHtml(matched || "无")}</span>
@@ -158,7 +184,10 @@ function renderWeibo(item) {
           <strong>${Number.isFinite(score) ? score.toFixed(2) : "--"}</strong>
         </div>
       </div>
-      <p class="text">${escapeHtml(item.text || "")}</p>
+      <div class="text-block">
+        <p class="text${shouldCollapse && !isExpanded ? " is-collapsed" : ""}">${escapeHtml(item.text || "")}</p>
+        ${textToggle}
+      </div>
       ${pics ? `<div class="pics">${pics}</div>` : ""}
       ${summary.conclusion ? `<p class="conclusion">${escapeHtml(summary.conclusion)}</p>` : ""}
       ${item.analysis_error ? `<p class="error-text">${escapeHtml(item.analysis_error)}</p>` : ""}
@@ -219,6 +248,19 @@ items.addEventListener("toggle", (event) => {
   }
 }, true);
 
+items.addEventListener("click", (event) => {
+  const toggle = event.target.closest("button[data-text-toggle]");
+  if (!toggle) return;
+  const docId = toggle.dataset.textToggle;
+  if (!docId) return;
+  if (expandedTextIds.has(docId)) {
+    expandedTextIds.delete(docId);
+  } else {
+    expandedTextIds.add(docId);
+  }
+  loadWeibos();
+});
+
 function emptyCard(message) {
   return `<article class="weibo empty"><p>${escapeHtml(message)}</p></article>`;
 }
@@ -229,6 +271,15 @@ function statusText(status) {
     error: "分析失败",
     no_image: "无可用配图",
   }[status] || "待分析";
+}
+
+function platformLabel(value) {
+  return {
+    weibo: "微博",
+    douyin: "抖音",
+    tieba: "百度贴吧",
+    xhs: "小红书",
+  }[value] || value || "";
 }
 
 function scoreLevelClass(score) {

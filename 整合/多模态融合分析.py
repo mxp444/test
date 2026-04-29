@@ -29,6 +29,9 @@ import jieba
 import numpy as np
 
 
+LOAD_WORD_VECTOR_MODEL = False
+
+
 FINANCE_LABELS = {
     0: "非金融舆情类但胜似金融舆情",
     1: "完全非金融舆情类",
@@ -266,10 +269,11 @@ class FusionNetwork:
 
 
 class MultimodalRiskFusion:
-    def __init__(self, base_dir: Optional[str] = None, strict_init: bool = False):
+    def __init__(self, base_dir: Optional[str] = None, strict_init: bool = False, load_word_vector_model: Optional[bool] = None):
         self.base_dir = Path(base_dir or Path(__file__).resolve().parent).resolve()
         self.json_dir = self.base_dir / "json"
         self.strict_init = strict_init
+        self.load_word_vector_model = LOAD_WORD_VECTOR_MODEL if load_word_vector_model is None else bool(load_word_vector_model)
         self.component_status: Dict[str, str] = {}
         self.component_load_seconds: Dict[str, float] = {}
         self.init_errors: List[str] = []
@@ -279,7 +283,13 @@ class MultimodalRiskFusion:
             sys.path.insert(0, str(self.base_dir))
 
         self.financial_attribute = self._safe_init("nlp金融属性判断", "Financial_attribute", HeuristicFinancialAttribute)
-        self.risk_factor = self._safe_init("nlp风险要素识别", "Risk_factor", HeuristicRiskFactor)
+        if self.load_word_vector_model:
+            self.risk_factor = self._safe_init("nlp风险要素识别", "Risk_factor", HeuristicRiskFactor)
+        else:
+            component_name = "nlp风险要素识别.Risk_factor"
+            self.risk_factor = HeuristicRiskFactor()
+            self.component_status[component_name] = "skipped"
+            self.component_load_seconds[component_name] = 0.0
         self.sentiment_analysis = self._safe_init("nlp情感分析", "Sentiment_analysis", HeuristicSentimentAnalysis)
         self.incitement_evaluator = self._safe_init("nlp煽动性评估", "Incitement_evaluator", HeuristicIncitementEvaluator)
         self.ocr_engine = self._safe_init("picOCR文字识别", "OCR", None)
@@ -307,6 +317,7 @@ class MultimodalRiskFusion:
                 "component_status": self.component_status,
                 "component_load_seconds": self.component_load_seconds,
                 "init_errors": self.init_errors,
+                "load_word_vector_model": self.load_word_vector_model,
             },
             "text_feature_extraction": text_result,
             "image_feature_extraction": image_result,

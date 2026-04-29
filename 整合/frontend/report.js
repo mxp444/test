@@ -57,7 +57,7 @@ async function loadReport() {
   }
 
   try {
-    const response = await fetch(`/api/weibos/${encodeURIComponent(id)}`);
+    const response = await fetch(`/api/items/${encodeURIComponent(id)}`);
     const payload = await response.json();
     if (!response.ok || !payload.ok) throw new Error(payload.error || "报告读取失败。");
     renderReport(payload.item);
@@ -88,7 +88,7 @@ function renderReport(item) {
       <p class="text-box">${escapeHtml(summary.suggestion || "")}</p>
     </section>
 
-    ${renderBlock("微博原文", `<p class="text-box">${escapeHtml(item.text || "")}</p>${renderPics(item.pics || [])}`)}
+    ${renderBlock(`${item.platform_name || platformLabel(item.platform) || "平台"}原文`, `<p class="text-box">${escapeHtml(item.text || "")}</p>${renderPics(item.pics || [])}`)}
     ${renderBlock("融合网络输出层", `<div class="bars">${renderBars(summary.network_output || {}, outputLabels)}</div>`)}
     ${renderBlock("融合输入特征向量", `<div class="metric-grid">${renderVector(fusion.fused_feature_vector || {})}</div>`)}
     ${renderBlock("跨模态融合特征", `<div class="feature-list">${renderFeatureList(summary.cross_modal_features || {}, crossLabels)}</div>`)}
@@ -108,6 +108,15 @@ function renderBlock(title, html) {
 function renderPics(pics) {
   const html = pics.map((pic) => `<img src="${pic.url}" title="${escapeHtml(pic.path)}" loading="lazy">`).join("");
   return html ? `<div class="pics">${html}</div>` : "";
+}
+
+function platformLabel(value) {
+  return {
+    weibo: "微博",
+    douyin: "抖音",
+    tieba: "百度贴吧",
+    xhs: "小红书",
+  }[value] || value || "";
 }
 
 function renderBars(values, labels) {

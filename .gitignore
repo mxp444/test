@@ -7,22 +7,40 @@ __pycache__/
 .venv/
 venv/
 env/
+.conda/
 
 # IDE settings
 .idea/
 .vscode/
 
+# Environment files
+.env
+*.env
+**/.env
+**/*.env
+
 # Runtime uploads and generated outputs
 uploads/
 */uploads/
+**/uploads/
 pics/
 */pics/
+**/pics/
 pic/
 */pic/
+**/pic/
 images/
 */images/
+**/images/
 json/
 */json/
+**/json/
+result/
+*/result/
+**/result/
+results/
+*/results/
+**/results/
 
 # Model checkpoints and large ML artifacts
 checkpoint-*/
@@ -38,13 +56,33 @@ checkpoint-*/
 training_history.json
 runs/
 logs/
+*.log
 
 # Spider runtime/cache/output data
 crawls/
 requests.queue/
 requests.seen
+seen_ids.txt
+*/seen_ids.txt
+**/seen_ids.txt
 微博爬虫/结果文件/
 微博爬虫/weibo/结果文件/
+
+# Node / frontend dependencies
+node_modules/
+*/node_modules/
+**/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Python tool caches / reports
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
 
 # Office temporary files
 ~$*

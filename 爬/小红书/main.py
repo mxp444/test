@@ -24,6 +24,7 @@ PROJECT_ROOT = PROJECT_DIR
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+import setting  # noqa: E402
 from apis.xhs_pc_apis import XHS_Apis  # noqa: E402
 from xhs_utils.cookie_util import trans_cookies  # noqa: E402
 from xhs_utils.data_util import handle_note_info, timestamp_to_str  # noqa: E402
@@ -363,7 +364,10 @@ class KeywordMongoSpider:
 
     @staticmethod
     def should_save_note(note: Dict) -> bool:
-        return bool((note.get("desc") or "").strip()) and bool(note.get("image_list")) and not is_video_note(note)
+        text = note_text(note)
+        return bool(text.strip()) and (bool(note.get("image_list")) or not getattr(setting, "REQUIRE_IMAGES", True)) and (
+            getattr(setting, "SAVE_VIDEO_NOTES", False) or not is_video_note(note)
+        )
 
     def process_search_notes(
         self,

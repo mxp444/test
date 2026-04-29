@@ -67,5 +67,7 @@ MONGO_COLLECTION = "test_xhs"
 
 # 图片下载到本地，MongoDB 的 pics 字段保存本地绝对路径，前端经 /media 预览。
 DOWNLOAD_IMAGES = True
+REQUIRE_IMAGES = False
+SAVE_VIDEO_NOTES = True
 RESULT_DIR = "result"
 PIC_DIR = "pic"
