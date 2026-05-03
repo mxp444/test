@@ -18,15 +18,27 @@ import torch
 import numpy as np
 import joblib
 import os
+from pathlib import Path
+
+os.environ.setdefault("USE_TF", "0")
+os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
+
 from transformers import BertTokenizer, BertForSequenceClassification
 
 
 
 class Financial_attribute():
     def __init__(self, model_dir="./my_finance_bert_wwm"):
-        self.tokenizer = BertTokenizer.from_pretrained(model_dir)
-        self.model = BertForSequenceClassification.from_pretrained(model_dir)
-        self.label_encoder = joblib.load(os.path.join(model_dir, "label_encoder.pkl"))
+        model_path = Path(model_dir)
+        if not model_path.is_absolute():
+            model_path = Path(__file__).resolve().parent / model_path
+        model_path = model_path.resolve()
+        if not model_path.exists():
+            raise FileNotFoundError(f"金融属性模型目录不存在: {model_path}")
+
+        self.tokenizer = BertTokenizer.from_pretrained(str(model_path), local_files_only=True)
+        self.model = BertForSequenceClassification.from_pretrained(str(model_path), local_files_only=True)
+        self.label_encoder = joblib.load(model_path / "label_encoder.pkl")
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model.to(self.device)
         self.model.eval()

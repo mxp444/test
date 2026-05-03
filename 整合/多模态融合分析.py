@@ -29,7 +29,7 @@ import jieba
 import numpy as np
 
 
-LOAD_WORD_VECTOR_MODEL = False
+LOAD_WORD_VECTOR_MODEL = True
 
 
 FINANCE_LABELS = {

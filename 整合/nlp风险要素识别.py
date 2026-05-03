@@ -1,11 +1,12 @@
 import numpy as np
 from gensim.models import KeyedVectors
 import jieba
+from pathlib import Path
 
 class Risk_factor():
     def __init__(self):
-        path = "sgns.financial.word"
-        self.WORD2VEC_PATH = "sgns.financial.word"
+        path = Path(__file__).resolve().parent / "sgns.financial.word"
+        self.WORD2VEC_PATH = str(path)
         self.SIMILARITY_THRESHOLD = 0.40  # 略微降低阈值以适应旧词库
         self.category_seeds = {
             # 1. 保本无风险虚假承诺类
@@ -122,10 +123,10 @@ class Risk_factor():
         }
         print(f"正在加载词向量模型: {path} ...")
         try:
-            self.model = KeyedVectors.load_word2vec_format(path, binary=False)
+            self.model = KeyedVectors.load_word2vec_format(str(path), binary=False)
             print(f"模型加载成功！词表大小: {len(self.model.key_to_index)}")
         except Exception as e:
-            print(f"模型加载失败: {e}")
+            raise RuntimeError(f"词向量模型加载失败: {e}") from e
 
         self.category_vectors = {}
         print("\n正在构建类别向量...")
