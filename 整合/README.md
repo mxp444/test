@@ -21,7 +21,7 @@ pip install -r requirements.txt
 python backend\app.py
 ```
 
-后端启动顺序是严格模式：先检查前端目录、爬虫目录、MongoDB 连接，再完整加载多模态模型组件。任意一项失败，Flask 后端不会启动。
+后端默认采用演示友好的非严格启动：先检查前端目录、爬虫目录，再尝试连接 MongoDB 和加载多模态模型组件。MongoDB 或深度学习依赖暂时不可用时，页面仍可启动，模型组件会显示为兜底运行；如需恢复严格检查，可设置 `STRICT_RUNTIME=1`。
 
 然后访问：
 

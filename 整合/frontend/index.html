@@ -3,48 +3,114 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>多模态网络金融舆情风险监测系统</title>
+  <title>网络金融舆情风险监测系统</title>
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
-  <header class="site-header">
+  <section id="authScreen" class="auth-screen">
+    <div class="auth-panel">
+      <button id="authCloseBtn" class="auth-close" type="button" aria-label="关闭">×</button>
+      <div class="auth-brand">
+        <div class="brand-badge">监</div>
+        <div class="brand-copy">
+          <p>Internal Financial Opinion Risk Monitor</p>
+          <h1>网络金融舆情风险监测系统</h1>
+        </div>
+      </div>
+      <div class="auth-title">
+        <button class="auth-title-tab is-active" type="button">密码登录</button>
+      </div>
+      <form id="loginForm" class="auth-form is-active" data-auth-panel="login">
+        <div class="auth-field">
+          <span>账号</span>
+          <input id="loginName" autocomplete="username" placeholder="请输入账号" value="user">
+        </div>
+        <div class="auth-field">
+          <span>密码</span>
+          <input id="loginPassword" type="password" autocomplete="current-password" placeholder="请输入密码" value="user123">
+          <button id="togglePasswordBtn" class="forgot-link" type="button">展示密码</button>
+        </div>
+        <div class="auth-actions">
+          <button id="showRegisterBtn" type="button">注册</button>
+          <button id="loginSubmitBtn" class="primary auth-submit" type="submit" disabled>登录</button>
+        </div>
+      </form>
+      <form id="registerForm" class="auth-form" data-auth-panel="register">
+        <div class="auth-field">
+          <span>名称</span>
+          <input id="registerDisplayName" placeholder="请输入显示名称">
+        </div>
+        <div class="auth-field">
+          <span>账号</span>
+          <input id="registerName" autocomplete="username" placeholder="请输入账号">
+        </div>
+        <div class="auth-field">
+          <span>密码</span>
+          <input id="registerPassword" type="password" autocomplete="new-password" placeholder="请输入密码">
+        </div>
+        <div class="auth-actions">
+          <button id="backLoginBtn" type="button">返回登录</button>
+          <button class="primary" type="submit">注册</button>
+        </div>
+      </form>
+      <p id="authMessage" class="auth-message"></p>
+    </div>
+  </section>
+
+  <header id="appHeader" class="site-header">
     <div class="site-brand">
-      <div class="brand-badge">MR</div>
+      <div class="brand-badge">监</div>
       <div class="brand-copy">
-        <p>Realtime Multimodal Financial Opinion Monitor</p>
-        <h1>多模态网络金融舆情风险监测系统</h1>
+        <p>Internal Financial Opinion Risk Monitor</p>
+        <h1>网络金融舆情风险监测系统</h1>
       </div>
     </div>
     <div class="header-status">
       <span id="healthStatus" class="status-pill">系统自检中</span>
+      <div class="account-chip">
+        <span id="currentUserLabel">未登录</span>
+        <button id="logoutBtn" type="button">退出</button>
+      </div>
     </div>
   </header>
 
-  <main class="app-shell">
+  <main id="appShell" class="app-shell">
     <aside class="sidebar">
       <section class="sidebar-card nav-card">
-        <a class="nav-link is-active" href="#" data-view="home">监测首页</a>
-        <a class="nav-link" href="#" data-view="settings">平台设置</a>
-        <a class="nav-link" href="#" data-view="watch">追踪观测</a>
-        <a class="nav-link" href="#" data-view="logs">运行日志</a>
-        <a class="nav-link" href="#" data-view="status">系统状态</a>
+        <div class="nav-group-title">前台业务端</div>
+        <a class="nav-link is-active" href="#home" data-view="home" data-role="user">首页</a>
+        <a class="nav-link" href="#collection" data-view="collection" data-role="user">数据采集</a>
+        <a class="nav-link" href="#monitor" data-view="monitor" data-role="user">舆情监测</a>
+        <a class="nav-link" href="#risk" data-view="risk" data-role="user">风险分析</a>
+        <a class="nav-link" href="#search" data-view="search" data-role="user">舆情检索</a>
+        <a class="nav-link" href="#warning" data-view="warning" data-role="user">预警展示</a>
+        <a class="nav-link" href="#profile" data-view="profile" data-role="user">个人设置</a>
+        <div class="nav-group-title admin-only">后台管理端</div>
+        <a class="nav-link admin-only" href="#admin-platforms" data-view="admin-platforms" data-role="admin">平台管理</a>
+        <a class="nav-link admin-only" href="#admin-tasks" data-view="admin-tasks" data-role="admin">采集任务管理</a>
+        <a class="nav-link admin-only" href="#admin-rules" data-view="admin-rules" data-role="admin">采集规则配置</a>
+        <a class="nav-link admin-only" href="#admin-models" data-view="admin-models" data-role="admin">模型管理</a>
+        <a class="nav-link admin-only" href="#admin-logs" data-view="admin-logs" data-role="admin">运行日志</a>
+        <a class="nav-link admin-only" href="#admin-users" data-view="admin-users" data-role="admin">用户权限管理</a>
+        <a class="nav-link admin-only" href="#admin-settings" data-view="admin-settings" data-role="admin">系统设置</a>
       </section>
 
       <section class="sidebar-card">
         <div class="sidebar-head">
-          <h2>采集平台</h2>
-          <span>Source</span>
+          <h2>使用对象</h2>
+          <span>Position</span>
         </div>
-        <div id="platformSelector" class="platform-select" aria-label="选择采集平台"></div>
+        <p class="sidebar-note">本系统面向监管部门、内部业务人员和管理员。普通用户处理舆情业务，管理员负责平台、规则、模型、日志和权限维护。</p>
       </section>
 
-      <section class="sidebar-card">
+      <section class="sidebar-card admin-only">
         <div class="sidebar-head">
           <h2>任务控制</h2>
-          <span>Control</span>
+          <span>Admin</span>
         </div>
+        <div id="platformSelector" class="platform-select" aria-label="选择采集平台"></div>
         <div class="actions">
-          <button id="toggleBtn" class="primary">爬取</button>
+          <button id="toggleBtn" class="primary">启动采集</button>
           <button id="refreshBtn">刷新</button>
           <button id="analyzeOldBtn">补分析历史数据</button>
         </div>
@@ -54,145 +120,206 @@
           <p id="lastError" class="error-text"></p>
         </div>
       </section>
-
-      <section class="sidebar-card metrics-card">
-        <div class="sidebar-head">
-          <h2>采集统计</h2>
-          <span>Metrics</span>
-        </div>
-        <div class="metrics">
-          <div><span>写入</span><strong id="metricInserted">0</strong></div>
-          <div><span>重复</span><strong id="metricSkipped">0</strong></div>
-          <div><span>未命中</span><strong id="metricUnmatched">0</strong></div>
-          <div><span>丢弃</span><strong id="metricDiscarded">0</strong></div>
-        </div>
-      </section>
     </aside>
 
     <section class="content-column">
       <section id="homeView" class="view-panel is-active">
-        <div class="channel-strip">
-          <button class="channel-pill is-active" type="button" data-filter="all">全部</button>
-          <button class="channel-pill" type="button" data-filter="weibo">微博</button>
-          <button class="channel-pill" type="button" data-filter="douyin">抖音</button>
-          <button class="channel-pill" type="button" data-filter="tieba">贴吧</button>
-          <button class="channel-pill" type="button" data-filter="xhs">小红书</button>
-          <button class="channel-pill" type="button" data-filter="high-risk">中高风险</button>
-          <button class="channel-pill" type="button" data-filter="analyzed">已分析</button>
-          <button class="channel-pill" type="button" data-filter="recent">近两个月</button>
+        <div id="overviewCards" class="overview-grid"></div>
+        <div class="dashboard-grid">
+          <section class="feed-panel">
+            <div class="feed-head">
+              <div>
+                <p class="feed-eyebrow">风险等级分布</p>
+                <h2>监测风险概览</h2>
+              </div>
+            </div>
+            <div id="riskDistribution" class="bar-chart"></div>
+          </section>
+          <section class="feed-panel">
+            <div class="feed-head">
+              <div>
+                <p class="feed-eyebrow">平台占比</p>
+                <h2>舆情来源构成</h2>
+              </div>
+            </div>
+            <div id="platformDistribution" class="bar-chart"></div>
+          </section>
         </div>
-
         <section class="feed-panel">
           <div class="feed-head">
             <div>
-              <p class="feed-eyebrow">精选监测流</p>
-              <h2>多平台风险监测结果</h2>
+              <p class="feed-eyebrow">最新高风险</p>
+              <h2>需要重点关注的舆情</h2>
             </div>
-            <span id="count">未加载</span>
+            <span id="homeMeta">未加载</span>
+          </div>
+          <div id="homeHighRiskItems" class="compact-table"></div>
+        </section>
+      </section>
+
+      <section id="collectionView" class="view-panel">
+        <section class="feed-panel">
+          <div class="feed-head">
+            <div>
+              <p class="feed-eyebrow">数据采集</p>
+              <h2>新增采集源</h2>
+            </div>
+            <span>前台只提交采集需求</span>
+          </div>
+          <form id="sourceForm" class="source-form">
+            <input type="hidden" id="sourceId">
+            <label>平台名称<input id="sourcePlatformName" required placeholder="例如：某金融论坛"></label>
+            <label>目标网址<input id="sourceTargetUrl" required placeholder="https://"></label>
+            <label>账号名称<input id="sourceAccountName" placeholder="可选"></label>
+            <label>平台类型<select id="sourcePlatformType">
+              <option>论坛</option><option>贴吧</option><option>短视频平台</option><option>金融APP</option><option>新闻网站</option><option>社交媒体</option>
+            </select></label>
+            <label>采集时间范围<select id="sourceTimeRange">
+              <option>近一周</option><option selected>近两个月</option><option>近半年</option><option>不限</option>
+            </select></label>
+            <label class="full">关键词<textarea id="sourceKeywords" placeholder="每行或空格分隔关键词"></textarea></label>
+            <div class="form-actions full">
+              <button class="primary" type="submit">保存采集源</button>
+              <button id="resetSourceBtn" type="button">清空</button>
+            </div>
+          </form>
+        </section>
+        <section class="feed-panel">
+          <div class="feed-head">
+            <div>
+              <p class="feed-eyebrow">采集源列表</p>
+              <h2>我的采集需求与状态</h2>
+            </div>
+            <span id="sourceMeta">未加载</span>
+          </div>
+          <div id="sourceTable" class="data-table"></div>
+        </section>
+      </section>
+
+      <section id="monitorView" class="view-panel">
+        <div class="channel-strip" id="monitorFilters"></div>
+        <section class="feed-panel">
+          <div class="feed-head">
+            <div>
+              <p class="feed-eyebrow">舆情监测</p>
+              <h2>多平台舆情列表</h2>
+            </div>
+            <div class="list-control">
+              <span id="count">未加载</span>
+              <label for="monitorLimitSelect">展示条数</label>
+              <select id="monitorLimitSelect">
+                <option value="10">10 条</option>
+                <option value="20" selected>20 条</option>
+                <option value="50">50 条</option>
+                <option value="100">100 条</option>
+                <option value="all">全部</option>
+              </select>
+            </div>
           </div>
           <div id="items" class="items"></div>
         </section>
       </section>
 
-      <section id="settingsView" class="view-panel">
+      <section id="riskView" class="view-panel">
+        <div class="dashboard-grid">
+          <section class="feed-panel"><div class="feed-head"><div><p class="feed-eyebrow">风险类型</p><h2>风险分类分布</h2></div></div><div id="riskTypeChart" class="bar-chart"></div></section>
+          <section class="feed-panel"><div class="feed-head"><div><p class="feed-eyebrow">情感倾向</p><h2>情感分析结果</h2></div></div><div id="sentimentChart" class="bar-chart"></div></section>
+        </div>
+        <section class="feed-panel">
+          <div class="feed-head"><div><p class="feed-eyebrow">高风险内容</p><h2>风险原因与处置建议</h2></div><span id="riskMeta">未加载</span></div>
+          <div id="riskItems" class="items"></div>
+        </section>
+      </section>
+
+      <section id="searchView" class="view-panel">
+        <section class="feed-panel">
+          <div class="feed-head"><div><p class="feed-eyebrow">舆情检索</p><h2>高级检索</h2></div></div>
+          <form id="searchForm" class="search-form">
+            <input id="searchKeyword" placeholder="关键词">
+            <select id="searchPlatform"><option value="">全部平台</option><option value="weibo">微博</option><option value="douyin">抖音</option><option value="tieba">百度贴吧</option><option value="xhs">小红书</option></select>
+            <select id="searchRisk"><option value="">全部风险等级</option><option value="high">高风险</option><option value="medium">中风险</option><option value="low">低风险</option></select>
+            <select id="searchSentiment"><option value="">全部情感倾向</option><option value="负面">负面</option><option value="中性">中性</option><option value="正面">正面</option></select>
+            <button class="primary" type="submit">检索</button>
+          </form>
+        </section>
+        <section class="feed-panel">
+          <div class="feed-head"><div><p class="feed-eyebrow">检索结果</p><h2>符合条件的舆情</h2></div><span id="searchMeta">未检索</span></div>
+          <div id="searchResults" class="items"></div>
+        </section>
+      </section>
+
+      <section id="warningView" class="view-panel">
+        <section class="feed-panel">
+          <div class="feed-head"><div><p class="feed-eyebrow">预警展示</p><h2>高风险预警列表</h2></div><span id="warningMeta">未加载</span></div>
+          <div id="warningItems" class="data-table"></div>
+        </section>
+      </section>
+
+      <section id="profileView" class="view-panel">
+        <div class="dashboard-grid profile-grid">
+          <section class="feed-panel">
+            <div class="feed-head">
+              <div>
+                <p class="feed-eyebrow">个人资料</p>
+                <h2>修改个人资料</h2>
+              </div>
+              <span id="profileRoleMeta">未登录</span>
+            </div>
+            <form id="profileForm" class="profile-form">
+              <label>账号<input id="profileUsername" disabled></label>
+              <label>显示名称<input id="profileDisplayName" placeholder="请输入显示名称"></label>
+              <button class="primary" type="submit">保存资料</button>
+            </form>
+            <p id="profileMessage" class="form-message"></p>
+          </section>
+          <section class="feed-panel">
+            <div class="feed-head">
+              <div>
+                <p class="feed-eyebrow">账号安全</p>
+                <h2>修改密码</h2>
+              </div>
+            </div>
+            <form id="passwordForm" class="profile-form">
+              <label>原密码<input id="oldPassword" type="password" autocomplete="current-password"></label>
+              <label>新密码<input id="newPassword" type="password" autocomplete="new-password"></label>
+              <label>确认新密码<input id="confirmPassword" type="password" autocomplete="new-password"></label>
+              <button class="primary" type="submit">修改密码</button>
+            </form>
+            <p id="passwordMessage" class="form-message"></p>
+          </section>
+        </div>
+      </section>
+
+      <section id="admin-platformsView" class="view-panel admin-view">
         <section class="settings-panel">
-          <div class="settings-head">
-            <div>
-              <p class="feed-eyebrow">平台设置</p>
-              <h2>采集配置中心</h2>
-            </div>
-            <button id="saveSettingsBtn" class="primary" type="button">保存设置</button>
-          </div>
-          <p class="settings-summary">这里可以统一维护平台 Cookie、关键词列表、时间范围和分页策略。保存后，前端启动爬虫会按这里的最新配置运行。</p>
-          <section class="settings-block">
-            <div class="settings-block-head">
-              <h3>扩展平台</h3>
-              <span>可先加入待接入平台，后续补爬虫即可启用</span>
-            </div>
-            <div id="knownPlatformCatalog" class="catalog-grid"></div>
-          </section>
-          <section class="settings-block">
-            <div class="settings-block-head">
-              <h3>已配置平台</h3>
-              <span id="settingsStatusText">正在加载配置…</span>
-            </div>
-            <div class="settings-switcher">
-              <label for="platformSettingsSelect">当前查看</label>
-              <select id="platformSettingsSelect"></select>
-            </div>
-            <div id="platformSettingsList" class="settings-list"></div>
-          </section>
+          <div class="settings-head"><div><p class="feed-eyebrow">平台管理</p><h2>采集平台与接入配置</h2></div><button id="saveSettingsBtn" class="primary" type="button">保存设置</button></div>
+          <section class="settings-block"><div class="settings-block-head"><h3>扩展平台</h3><span>管理员新增平台，前台提交的新平台进入后台审核与配置</span></div><div id="knownPlatformCatalog" class="catalog-grid"></div></section>
+          <section class="settings-block"><div class="settings-block-head"><h3>平台配置</h3><span id="settingsStatusText">正在加载配置</span></div><div class="settings-switcher"><label for="platformSettingsSelect">当前查看</label><select id="platformSettingsSelect"></select></div><div id="platformSettingsList" class="settings-list"></div></section>
         </section>
       </section>
 
-      <section id="watchView" class="view-panel">
-        <section class="feed-panel">
-          <div class="feed-head">
-            <div>
-              <p class="feed-eyebrow">追踪观测</p>
-              <h2>重点帖子持续观测列表</h2>
-            </div>
-            <span id="watchCount">未加载</span>
-          </div>
-          <div id="watchItems" class="items"></div>
-        </section>
+      <section id="admin-tasksView" class="view-panel admin-view">
+        <section class="feed-panel"><div class="feed-head"><div><p class="feed-eyebrow">采集任务管理</p><h2>任务状态与执行结果</h2></div><span id="taskMeta">未加载</span></div><div id="taskSummaryList" class="component-status-list"></div></section>
       </section>
 
-      <section id="logsView" class="view-panel">
-        <section class="feed-panel">
-          <div class="feed-head">
-            <div>
-              <p class="feed-eyebrow">运行日志</p>
-              <h2>采集与分析实时控制台</h2>
-            </div>
-            <span id="logsMeta">等待任务启动</span>
-          </div>
-          <pre id="logsPanel" class="logs logs-page">等待爬取任务启动...</pre>
-        </section>
+      <section id="admin-rulesView" class="view-panel admin-view">
+        <section class="feed-panel"><div class="feed-head"><div><p class="feed-eyebrow">采集规则配置</p><h2>平台适配与爬虫策略</h2></div></div><div id="ruleCards" class="admin-card-grid"></div></section>
       </section>
 
-      <section id="statusView" class="view-panel">
-        <section class="feed-panel status-page">
-          <div class="feed-head">
-            <div>
-              <p class="feed-eyebrow">系统状态</p>
-              <h2>模型引擎与任务运行状态</h2>
-            </div>
-            <span id="statusMeta">正在加载</span>
-          </div>
-          <div class="status-grid page-status-grid">
-            <div class="status-stat">
-              <span>健康检查</span>
-              <strong id="healthStatusMirror">在线</strong>
-            </div>
-            <div class="status-stat">
-              <span>当前任务</span>
-              <strong id="runStateMirror">空闲</strong>
-            </div>
-            <div class="status-stat">
-              <span>模型引擎</span>
-              <strong id="engineStatusText">检测中</strong>
-            </div>
-            <div class="status-stat">
-              <span>已选平台</span>
-              <strong id="selectedPlatformsText">-</strong>
-            </div>
-          </div>
-          <div class="system-sections">
-            <section class="status-card-block">
-              <h3>组件状态</h3>
-              <div id="componentStatusList" class="component-status-list"></div>
-            </section>
-            <section class="status-card-block">
-              <h3>任务摘要</h3>
-              <div id="taskSummaryList" class="component-status-list"></div>
-            </section>
-            <section class="status-card-block">
-              <h3>初始化告警</h3>
-              <div id="initErrorsList" class="status-note-list"></div>
-            </section>
-          </div>
-        </section>
+      <section id="admin-modelsView" class="view-panel admin-view">
+        <section class="feed-panel"><div class="feed-head"><div><p class="feed-eyebrow">模型管理</p><h2>多模态模型与分析组件</h2></div><span id="statusMeta">正在加载</span></div><div class="status-grid page-status-grid"><div class="status-stat"><span>模型引擎</span><strong id="engineStatusText">检测中</strong></div><div class="status-stat"><span>健康检查</span><strong id="healthStatusMirror">在线</strong></div></div><div id="componentStatusList" class="component-status-list"></div></section>
+      </section>
+
+      <section id="admin-logsView" class="view-panel admin-view">
+        <section class="feed-panel"><div class="feed-head"><div><p class="feed-eyebrow">运行日志</p><h2>采集与分析实时控制台</h2></div><span id="logsMeta">等待任务启动</span></div><pre id="logsPanel" class="logs logs-page">等待爬取任务启动...</pre></section>
+      </section>
+
+      <section id="admin-usersView" class="view-panel admin-view">
+        <section class="feed-panel"><div class="feed-head"><div><p class="feed-eyebrow">用户权限管理</p><h2>角色与权限矩阵</h2></div></div><div id="permissionMatrix" class="data-table"></div></section>
+      </section>
+
+      <section id="admin-settingsView" class="view-panel admin-view">
+        <section class="feed-panel"><div class="feed-head"><div><p class="feed-eyebrow">系统设置</p><h2>系统参数与预警阈值</h2></div></div><div id="systemSettings" class="admin-card-grid"></div></section>
       </section>
     </section>
   </main>

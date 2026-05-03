@@ -23,6 +23,8 @@ FRONTEND_DIR = BASE_DIR / "frontend"
 UPLOAD_DIR = BASE_DIR / "backend" / "uploads"
 PLATFORM_SETTINGS_FILE = BASE_DIR / "backend" / "platform_settings.json"
 WATCHLIST_FILE = BASE_DIR / "backend" / "watchlist.json"
+COLLECTION_SOURCES_FILE = BASE_DIR / "backend" / "collection_sources.json"
+USERS_FILE = BASE_DIR / "backend" / "users.json"
 ENGINE_FILE = BASE_DIR / "多模态融合分析.py"
 CRAWLER_DIR = BASE_DIR / "crawler"
 CRAWLERS_DIR = BASE_DIR / "crawlers"
@@ -33,6 +35,8 @@ LOAD_WORD_VECTOR_MODEL = (
     if LOAD_WORD_VECTOR_MODEL_ENV is None
     else LOAD_WORD_VECTOR_MODEL_ENV.strip().lower() not in {"0", "false", "no", "off"}
 )
+STRICT_RUNTIME_ENV = os.getenv("STRICT_RUNTIME", "0")
+STRICT_RUNTIME = STRICT_RUNTIME_ENV.strip().lower() in {"1", "true", "yes", "on"}
 CRAWL_TOTAL_TARGET = max(1, int(os.getenv("CRAWL_TOTAL_TARGET", "200")))
 
 KNOWN_EXTRA_PLATFORMS = {
@@ -141,6 +145,119 @@ def load_watchlist_store():
 
 def save_watchlist_store(items):
     WATCHLIST_FILE.write_text(json.dumps(items, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def request_role():
+    role = (request.headers.get("X-User-Role") or request.args.get("role") or "user").strip().lower()
+    return "admin" if role == "admin" else "user"
+
+
+def request_user():
+    name = (request.headers.get("X-User-Name") or request.args.get("user") or "").strip()
+    return name or ("admin" if request_role() == "admin" else "business-user")
+
+
+def require_admin():
+    if request_role() != "admin":
+        return jsonify({"ok": False, "error": "当前角色无权访问后台管理功能。"}), 403
+    return None
+
+
+def default_users():
+    return [
+        {"username": "user", "password": "user123", "role": "user", "display_name": "普通用户"},
+        {"username": "admin", "password": "admin123", "role": "admin", "display_name": "管理员"},
+    ]
+
+
+def load_users_store():
+    if not USERS_FILE.exists():
+        save_users_store(default_users())
+    try:
+        data = json.loads(USERS_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        data = default_users()
+    if not isinstance(data, list):
+        data = default_users()
+    return data
+
+
+def save_users_store(users):
+    USERS_FILE.write_text(json.dumps(users, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def find_user(username):
+    username = str(username or "").strip()
+    return next((user for user in load_users_store() if user.get("username") == username), None)
+
+
+def load_collection_sources_store():
+    if not COLLECTION_SOURCES_FILE.exists():
+        seeds = [
+            {
+                "id": "seed-weibo-001",
+                "owner": "business-user",
+                "platform_name": "微博金融关键词",
+                "platform_type": "社交媒体",
+                "target_url": "https://s.weibo.com",
+                "account_name": "",
+                "keywords": "理财 爆雷 维权",
+                "time_range": "近两个月",
+                "status": "待采集",
+                "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "result_count": 0,
+            },
+            {
+                "id": "seed-forum-001",
+                "owner": "admin",
+                "platform_name": "金融论坛观察源",
+                "platform_type": "论坛",
+                "target_url": "https://example.com/forum",
+                "account_name": "",
+                "keywords": "非法集资 投诉",
+                "time_range": "近一周",
+                "status": "规则配置中",
+                "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "result_count": 12,
+            },
+        ]
+        save_collection_sources_store(seeds)
+        return seeds
+    try:
+        data = json.loads(COLLECTION_SOURCES_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+    return data if isinstance(data, list) else []
+
+
+def save_collection_sources_store(items):
+    COLLECTION_SOURCES_FILE.write_text(json.dumps(items, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def visible_collection_sources():
+    items = load_collection_sources_store()
+    if request_role() == "admin":
+        return items
+    user = request_user()
+    return [item for item in items if item.get("owner") == user]
+
+
+def sanitize_collection_source(payload, existing=None):
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    return {
+        "id": existing.get("id") if existing else uuid4().hex,
+        "owner": existing.get("owner") if existing else request_user(),
+        "platform_name": str(payload.get("platform_name") or payload.get("platformName") or "").strip(),
+        "platform_type": str(payload.get("platform_type") or payload.get("platformType") or "新闻网站").strip(),
+        "target_url": str(payload.get("target_url") or payload.get("targetUrl") or "").strip(),
+        "account_name": str(payload.get("account_name") or payload.get("accountName") or "").strip(),
+        "keywords": str(payload.get("keywords") or "").strip(),
+        "time_range": str(payload.get("time_range") or payload.get("timeRange") or "近两个月").strip(),
+        "status": existing.get("status") if existing else "待采集",
+        "created_at": existing.get("created_at") if existing else now,
+        "updated_at": now,
+        "result_count": int(existing.get("result_count", 0)) if existing else 0,
+    }
 
 
 def add_watchlist_item(doc_id):
@@ -467,11 +584,14 @@ def initialize_runtime():
         client = MongoClient(setting.MONGO_URI, serverSelectionTimeoutMS=3000)
         try:
             client.admin.command("ping")
+        except Exception:
+            if STRICT_RUNTIME:
+                raise
         finally:
             client.close()
 
         analyzer_cls = load_analyzer_class()
-        _engine = analyzer_cls(base_dir=str(BASE_DIR), strict_init=True, load_word_vector_model=LOAD_WORD_VECTOR_MODEL)
+        _engine = analyzer_cls(base_dir=str(BASE_DIR), strict_init=STRICT_RUNTIME, load_word_vector_model=LOAD_WORD_VECTOR_MODEL)
         _runtime_ready = True
         return _engine
 
@@ -1208,6 +1328,9 @@ def analyze():
 
 @app.post("/api/crawl/start")
 def start_crawl():
+    blocked = require_admin()
+    if blocked:
+        return blocked
     payload = request.get_json(silent=True) or {}
     action = task.start_or_resume(payload.get("platforms"))
     return jsonify({"ok": True, "action": action, "status": task.status()})
@@ -1215,6 +1338,9 @@ def start_crawl():
 
 @app.post("/api/crawl/pause")
 def pause_crawl():
+    blocked = require_admin()
+    if blocked:
+        return blocked
     ok = task.pause()
     return jsonify({"ok": ok, "status": task.status()})
 
@@ -1226,15 +1352,186 @@ def crawl_status():
 
 @app.get("/api/platform-settings")
 def get_platform_settings():
+    blocked = require_admin()
+    if blocked:
+        return blocked
     payload = build_platform_settings_payload()
     return jsonify({"ok": True, **payload})
 
 
 @app.post("/api/platform-settings")
 def save_platform_settings():
+    blocked = require_admin()
+    if blocked:
+        return blocked
     payload = request.get_json(silent=True) or {}
     saved = persist_platform_settings(payload)
     return jsonify({"ok": True, **saved})
+
+
+@app.get("/api/session")
+def session_info():
+    role = request_role()
+    return jsonify(
+        {
+            "ok": True,
+            "user": request_user(),
+            "role": role,
+            "permissions": {
+                "business": True,
+                "admin": role == "admin",
+                "own_sources_only": role != "admin",
+            },
+        }
+    )
+
+
+@app.post("/api/auth/login")
+def login():
+    payload = request.get_json(silent=True) or {}
+    username = str(payload.get("username") or "").strip()
+    password = str(payload.get("password") or "")
+    role = str(payload.get("role") or "").strip().lower()
+    user = find_user(username)
+    if not user or user.get("password") != password:
+        return jsonify({"ok": False, "error": "用户名或密码错误。"}), 401
+    if role in {"user", "admin"} and user.get("role") != role:
+        return jsonify({"ok": False, "error": "账号角色与登录入口不匹配。"}), 403
+    return jsonify(
+        {
+            "ok": True,
+            "user": {
+                "username": user["username"],
+                "role": user.get("role", "user"),
+                "display_name": user.get("display_name") or user["username"],
+            },
+        }
+    )
+
+
+@app.post("/api/auth/register")
+def register():
+    payload = request.get_json(silent=True) or {}
+    username = str(payload.get("username") or "").strip()
+    password = str(payload.get("password") or "")
+    display_name = str(payload.get("display_name") or payload.get("displayName") or username).strip()
+    if not username or not password:
+        return jsonify({"ok": False, "error": "用户名和密码不能为空。"}), 400
+    if username.lower() == "admin":
+        return jsonify({"ok": False, "error": "注册账号只能是普通用户。"}), 400
+    users = load_users_store()
+    if any(user.get("username") == username for user in users):
+        return jsonify({"ok": False, "error": "用户名已存在。"}), 409
+    user = {"username": username, "password": password, "role": "user", "display_name": display_name or username}
+    users.append(user)
+    save_users_store(users)
+    return jsonify(
+        {
+            "ok": True,
+            "user": {
+                "username": user["username"],
+                "role": "user",
+                "display_name": user["display_name"],
+            },
+        }
+    )
+
+
+@app.put("/api/account/profile")
+def update_profile():
+    username = request_user()
+    payload = request.get_json(silent=True) or {}
+    display_name = str(payload.get("display_name") or payload.get("displayName") or "").strip()
+    if not display_name:
+        return jsonify({"ok": False, "error": "显示名称不能为空。"}), 400
+    users = load_users_store()
+    for user in users:
+        if user.get("username") != username:
+            continue
+        user["display_name"] = display_name
+        save_users_store(users)
+        return jsonify(
+            {
+                "ok": True,
+                "user": {
+                    "username": user["username"],
+                    "role": user.get("role", "user"),
+                    "display_name": user.get("display_name") or user["username"],
+                },
+            }
+        )
+    return jsonify({"ok": False, "error": "当前账号不存在。"}), 404
+
+
+@app.put("/api/account/password")
+def update_password():
+    username = request_user()
+    payload = request.get_json(silent=True) or {}
+    old_password = str(payload.get("old_password") or payload.get("oldPassword") or "")
+    new_password = str(payload.get("new_password") or payload.get("newPassword") or "")
+    if not old_password or not new_password:
+        return jsonify({"ok": False, "error": "原密码和新密码不能为空。"}), 400
+    if len(new_password) < 6:
+        return jsonify({"ok": False, "error": "新密码至少需要 6 位。"}), 400
+    users = load_users_store()
+    for user in users:
+        if user.get("username") != username:
+            continue
+        if user.get("password") != old_password:
+            return jsonify({"ok": False, "error": "原密码不正确。"}), 403
+        user["password"] = new_password
+        save_users_store(users)
+        return jsonify({"ok": True})
+    return jsonify({"ok": False, "error": "当前账号不存在。"}), 404
+
+
+@app.get("/api/collection-sources")
+def list_collection_sources():
+    return jsonify({"ok": True, "role": request_role(), "items": visible_collection_sources()})
+
+
+@app.post("/api/collection-sources")
+def create_collection_source():
+    payload = request.get_json(silent=True) or {}
+    item = sanitize_collection_source(payload)
+    if not item["platform_name"] or not item["target_url"]:
+        return jsonify({"ok": False, "error": "平台名称和目标网址不能为空。"}), 400
+    items = load_collection_sources_store()
+    items.insert(0, item)
+    save_collection_sources_store(items)
+    return jsonify({"ok": True, "item": item, "items": visible_collection_sources()})
+
+
+@app.put("/api/collection-sources/<source_id>")
+def update_collection_source(source_id):
+    payload = request.get_json(silent=True) or {}
+    items = load_collection_sources_store()
+    for index, item in enumerate(items):
+        if item.get("id") != source_id:
+            continue
+        if request_role() != "admin" and item.get("owner") != request_user():
+            return jsonify({"ok": False, "error": "普通用户只能修改自己添加的采集源。"}), 403
+        next_item = sanitize_collection_source(payload, existing=item)
+        if request_role() == "admin" and "status" in payload:
+            next_item["status"] = str(payload.get("status") or item.get("status") or "待采集")
+        items[index] = next_item
+        save_collection_sources_store(items)
+        return jsonify({"ok": True, "item": next_item, "items": visible_collection_sources()})
+    return jsonify({"ok": False, "error": "采集源不存在。"}), 404
+
+
+@app.delete("/api/collection-sources/<source_id>")
+def delete_collection_source(source_id):
+    items = load_collection_sources_store()
+    for item in items:
+        if item.get("id") != source_id:
+            continue
+        if request_role() != "admin" and item.get("owner") != request_user():
+            return jsonify({"ok": False, "error": "普通用户只能删除自己添加的采集源。"}), 403
+        next_items = [entry for entry in items if entry.get("id") != source_id]
+        save_collection_sources_store(next_items)
+        return jsonify({"ok": True, "items": visible_collection_sources()})
+    return jsonify({"ok": False, "error": "采集源不存在。"}), 404
 
 
 @app.get("/api/watchlist")
@@ -1275,7 +1572,7 @@ def delete_watchlist_item(doc_id):
 @app.get("/api/weibos")
 def list_weibos():
     try:
-        limit = max(1, min(int(request.args.get("limit", 100)), 300))
+        limit = max(1, min(int(request.args.get("limit", 100)), 2000))
         docs, total = load_analyzed_items(limit)
         analyzed = total
         return jsonify(

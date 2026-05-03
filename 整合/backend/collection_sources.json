@@ -1,0 +1,28 @@
+[
+  {
+    "id": "seed-weibo-001",
+    "owner": "business-user",
+    "platform_name": "微博金融关键词",
+    "platform_type": "社交媒体",
+    "target_url": "https://s.weibo.com",
+    "account_name": "",
+    "keywords": "理财 爆雷 维权",
+    "time_range": "近两个月",
+    "status": "待采集",
+    "created_at": "2026-05-03 17:29:42",
+    "result_count": 0
+  },
+  {
+    "id": "seed-forum-001",
+    "owner": "admin",
+    "platform_name": "金融论坛观察源",
+    "platform_type": "论坛",
+    "target_url": "https://example.com/forum",
+    "account_name": "",
+    "keywords": "非法集资 投诉",
+    "time_range": "近一周",
+    "status": "规则配置中",
+    "created_at": "2026-05-03 17:29:42",
+    "result_count": 12
+  }
+]
