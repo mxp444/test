@@ -297,7 +297,22 @@ def pick_forum_state(states: List[Dict[str, Any]]) -> Dict[str, Any]:
     return states[0]
 
 
-async def run_async_crawler(controller, log, progress) -> Dict[str, int]:
+def write_analysis_fields(collection, item):
+    collection.update_one(
+        {"id": item["id"]},
+        {
+            "$set": {
+                "analysis": item.get("analysis"),
+                "analysis_status": item.get("analysis_status"),
+                "analysis_error": item.get("analysis_error", ""),
+                "analysis_image": item.get("analysis_image", ""),
+                "analysis_at": item.get("analysis_at"),
+            }
+        },
+    )
+
+
+async def run_async_crawler(controller, log, progress, item_callback=None) -> Dict[str, int]:
     filter_keywords = read_plain_keywords(setting.KEYWORD_LIST)
     forums = read_plain_keywords(setting.FORUM_LIST)
     seen = SeenStore(setting.SEEN_IDS_FILE)
@@ -362,6 +377,7 @@ async def run_async_crawler(controller, log, progress) -> Dict[str, int]:
                     forum_states.remove(state)
 
                 operations = []
+                pending_analysis = []
                 for thread in threads:
                     if max_items > 0 and inserted >= max_items:
                         break
@@ -394,12 +410,22 @@ async def run_async_crawler(controller, log, progress) -> Dict[str, int]:
                             upsert=True,
                         )
                     )
+                    pending_analysis.append(item)
                     seen.add(item["id"])
                     inserted += 1
                     report_progress()
 
                 if operations:
                     collection.bulk_write(operations, ordered=False)
+                    if item_callback:
+                        for item in pending_analysis:
+                            try:
+                                item_callback(item)
+                            except Exception as exc:
+                                item["analysis_status"] = "error"
+                                item["analysis_error"] = str(exc)
+                                log(f"多模态分析失败，贴吧 {item['id']}: {exc}")
+                            write_analysis_fields(collection, item)
                 log(
                     f"本页写入 {len(operations)} 条，累计写入 {inserted} 条，"
                     f"跳过重复 {skipped} 条，未命中关键词 {unmatched} 条，丢弃 {discarded} 条。"
@@ -420,10 +446,10 @@ async def run_async_crawler(controller, log, progress) -> Dict[str, int]:
     return {"inserted": inserted, "skipped": skipped, "unmatched": unmatched, "discarded": discarded}
 
 
-def run_crawler(controller=None, log=print, progress=None) -> Dict[str, int]:
+def run_crawler(controller=None, log=print, progress=None, item_callback=None) -> Dict[str, int]:
     if controller is None:
         controller = NullController()
-    return asyncio.run(run_async_crawler(controller, log, progress))
+    return asyncio.run(run_async_crawler(controller, log, progress, item_callback=item_callback))
 
 
 class NullController:

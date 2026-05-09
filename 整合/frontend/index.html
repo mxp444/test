@@ -81,9 +81,8 @@
         <a class="nav-link is-active" href="#home" data-view="home" data-role="user">首页</a>
         <a class="nav-link" href="#collection" data-view="collection" data-role="user">数据采集</a>
         <a class="nav-link" href="#monitor" data-view="monitor" data-role="user">舆情监测</a>
+        <a class="nav-link" href="#tracking" data-view="tracking" data-role="user">个人追踪</a>
         <a class="nav-link" href="#risk" data-view="risk" data-role="user">风险分析</a>
-        <a class="nav-link" href="#search" data-view="search" data-role="user">舆情检索</a>
-        <a class="nav-link" href="#warning" data-view="warning" data-role="user">预警展示</a>
         <a class="nav-link" href="#profile" data-view="profile" data-role="user">个人设置</a>
         <div class="nav-group-title admin-only">后台管理端</div>
         <a class="nav-link admin-only" href="#admin-platforms" data-view="admin-platforms" data-role="admin">平台管理</a>
@@ -162,9 +161,9 @@
           <div class="feed-head">
             <div>
               <p class="feed-eyebrow">数据采集</p>
-              <h2>新增采集源</h2>
+              <h2>采集源申请</h2>
             </div>
-            <span>前台只提交采集需求</span>
+            <span>普通用户提交申请，管理员审核通过后纳入采集源</span>
           </div>
           <form id="sourceForm" class="source-form">
             <input type="hidden" id="sourceId">
@@ -179,7 +178,7 @@
             </select></label>
             <label class="full">关键词<textarea id="sourceKeywords" placeholder="每行或空格分隔关键词"></textarea></label>
             <div class="form-actions full">
-              <button class="primary" type="submit">保存采集源</button>
+              <button class="primary" type="submit">提交采集申请</button>
               <button id="resetSourceBtn" type="button">清空</button>
             </div>
           </form>
@@ -188,7 +187,7 @@
           <div class="feed-head">
             <div>
               <p class="feed-eyebrow">采集源列表</p>
-              <h2>我的采集需求与状态</h2>
+              <h2>平台采集源与申请状态</h2>
             </div>
             <span id="sourceMeta">未加载</span>
           </div>
@@ -198,6 +197,19 @@
 
       <section id="monitorView" class="view-panel">
         <div class="channel-strip" id="monitorFilters"></div>
+        <section class="feed-panel">
+          <div class="feed-head"><div><p class="feed-eyebrow">高级检索</p><h2>规则筛选</h2></div><span>平台快捷过滤与自定义规则可叠加使用</span></div>
+          <form id="searchForm" class="search-form">
+            <input id="searchKeyword" placeholder="关键词 / 用户 / 原文内容">
+            <select id="searchPlatform"><option value="">全部平台</option><option value="weibo">微博</option><option value="douyin">抖音</option><option value="tieba">百度贴吧</option><option value="xhs">小红书</option></select>
+            <select id="searchRisk"><option value="">全部风险等级</option><option value="high">高风险</option><option value="medium-high">中高风险</option><option value="medium">中风险</option><option value="low">低风险</option></select>
+            <select id="searchSentiment"><option value="">全部情感倾向</option><option value="负面">负面</option><option value="中性">中性</option><option value="正面">正面</option></select>
+            <select id="searchAnalyzeStatus"><option value="">全部分析状态</option><option value="done">已分析</option><option value="pending">待分析</option><option value="error">分析异常</option></select>
+            <select id="searchImageRule"><option value="">图片不限</option><option value="has">有图片</option><option value="none">无图片</option></select>
+            <button class="primary" type="submit">应用规则</button>
+            <button id="resetSearchBtn" type="button">重置</button>
+          </form>
+        </section>
         <section class="feed-panel">
           <div class="feed-head">
             <div>
@@ -220,38 +232,25 @@
         </section>
       </section>
 
+      <section id="trackingView" class="view-panel">
+        <section class="feed-panel">
+          <div class="feed-head">
+            <div><p class="feed-eyebrow">个人追踪</p><h2>已加入追踪的舆情</h2></div>
+            <span id="trackingMeta">未加载</span>
+          </div>
+          <div id="trackingItems" class="items"></div>
+        </section>
+      </section>
+
       <section id="riskView" class="view-panel">
         <div class="dashboard-grid">
           <section class="feed-panel"><div class="feed-head"><div><p class="feed-eyebrow">风险类型</p><h2>风险分类分布</h2></div></div><div id="riskTypeChart" class="bar-chart"></div></section>
           <section class="feed-panel"><div class="feed-head"><div><p class="feed-eyebrow">情感倾向</p><h2>情感分析结果</h2></div></div><div id="sentimentChart" class="bar-chart"></div></section>
         </div>
         <section class="feed-panel">
-          <div class="feed-head"><div><p class="feed-eyebrow">高风险内容</p><h2>风险原因与处置建议</h2></div><span id="riskMeta">未加载</span></div>
+          <div class="feed-head"><div><p class="feed-eyebrow">中高风险内容</p><h2>风险原因与处置建议</h2></div><span id="riskMeta">未加载</span></div>
+          <div class="channel-strip compact" id="riskLevelFilters"></div>
           <div id="riskItems" class="items"></div>
-        </section>
-      </section>
-
-      <section id="searchView" class="view-panel">
-        <section class="feed-panel">
-          <div class="feed-head"><div><p class="feed-eyebrow">舆情检索</p><h2>高级检索</h2></div></div>
-          <form id="searchForm" class="search-form">
-            <input id="searchKeyword" placeholder="关键词">
-            <select id="searchPlatform"><option value="">全部平台</option><option value="weibo">微博</option><option value="douyin">抖音</option><option value="tieba">百度贴吧</option><option value="xhs">小红书</option></select>
-            <select id="searchRisk"><option value="">全部风险等级</option><option value="high">高风险</option><option value="medium">中风险</option><option value="low">低风险</option></select>
-            <select id="searchSentiment"><option value="">全部情感倾向</option><option value="负面">负面</option><option value="中性">中性</option><option value="正面">正面</option></select>
-            <button class="primary" type="submit">检索</button>
-          </form>
-        </section>
-        <section class="feed-panel">
-          <div class="feed-head"><div><p class="feed-eyebrow">检索结果</p><h2>符合条件的舆情</h2></div><span id="searchMeta">未检索</span></div>
-          <div id="searchResults" class="items"></div>
-        </section>
-      </section>
-
-      <section id="warningView" class="view-panel">
-        <section class="feed-panel">
-          <div class="feed-head"><div><p class="feed-eyebrow">预警展示</p><h2>高风险预警列表</h2></div><span id="warningMeta">未加载</span></div>
-          <div id="warningItems" class="data-table"></div>
         </section>
       </section>
 
@@ -293,8 +292,9 @@
       <section id="admin-platformsView" class="view-panel admin-view">
         <section class="settings-panel">
           <div class="settings-head"><div><p class="feed-eyebrow">平台管理</p><h2>采集平台与接入配置</h2></div><button id="saveSettingsBtn" class="primary" type="button">保存设置</button></div>
+          <section class="settings-block"><div class="settings-block-head"><h3>前台采集申请</h3><span>只展示待处理摘要，点击查看详情后进入独立页面处理</span></div><div id="sourceApplicationsPanel" class="settings-list"></div></section>
           <section class="settings-block"><div class="settings-block-head"><h3>扩展平台</h3><span>管理员新增平台，前台提交的新平台进入后台审核与配置</span></div><div id="knownPlatformCatalog" class="catalog-grid"></div></section>
-          <section class="settings-block"><div class="settings-block-head"><h3>平台配置</h3><span id="settingsStatusText">正在加载配置</span></div><div class="settings-switcher"><label for="platformSettingsSelect">当前查看</label><select id="platformSettingsSelect"></select></div><div id="platformSettingsList" class="settings-list"></div></section>
+          <section class="settings-block"><div class="settings-block-head"><h3>已有平台配置</h3><span id="settingsStatusText">正在加载配置</span></div><div class="settings-switcher"><label for="platformSettingsSelect">当前查看</label><select id="platformSettingsSelect"></select></div><div id="platformSettingsList" class="settings-list"></div></section>
         </section>
       </section>
 

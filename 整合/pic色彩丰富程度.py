@@ -97,7 +97,7 @@ class Color_richness:
 
 
 if __name__ == "__main__":
-    test_image = "pics/5250024851118516-7.jpg"
+    test_image = r"C:\Users\R9000P\Desktop\毕设\整合\pics\490f705bd73faaa6711001ea4ae5de15.jpeg"
     model = Color_richness()
     score, details = model.image_quality_score(test_image, verbose=True)
     print(f"图像综合质量评分: {score:.2f}/100")

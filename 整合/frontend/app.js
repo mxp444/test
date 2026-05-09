@@ -7,18 +7,21 @@ const state = {
   user: "",
   displayName: "",
   items: [],
+  watchlist: [],
+  watchTotal: 0,
   sources: [],
   status: {},
   health: null,
-  platformSettings: { platforms: {}, options: [], known_platforms: [] },
+  platformSettings: { platforms: {}, options: [], known_platforms: [], source_applications: [] },
   feedFilter: "all",
   activeView: "home",
   settingsDirty: false,
   activeSettingsPlatformId: "",
   monitorLimit: localStorage.getItem("monitorLimit") || "20",
+  riskAnalysisFilter: "medium-high",
 };
 
-const views = ["home", "collection", "monitor", "risk", "search", "warning", "profile", "admin-platforms", "admin-tasks", "admin-rules", "admin-models", "admin-logs", "admin-users", "admin-settings"];
+const views = ["home", "collection", "monitor", "tracking", "risk", "profile", "admin-platforms", "admin-tasks", "admin-rules", "admin-models", "admin-logs", "admin-users", "admin-settings"];
 const adminViews = new Set(views.filter((view) => view.startsWith("admin-")));
 const riskTypes = ["虚假宣传风险", "非法集资风险", "金融诈骗风险", "负面舆情风险", "投诉维权风险", "恶意营销风险", "其他风险"];
 const sentimentTypes = ["负面", "中性", "正面"];
@@ -72,8 +75,9 @@ function bindEvents() {
   $("#passwordForm")?.addEventListener("submit", savePassword);
   $("#searchForm")?.addEventListener("submit", (event) => {
     event.preventDefault();
-    renderSearchResults();
+    renderMonitor();
   });
+  $("#resetSearchBtn")?.addEventListener("click", resetSearchRules);
   $("#monitorLimitSelect")?.addEventListener("change", (event) => {
     state.monitorLimit = event.target.value;
     localStorage.setItem("monitorLimit", state.monitorLimit);
@@ -86,6 +90,10 @@ function bindEvents() {
     if (edit) fillSourceForm(edit.dataset.sourceEdit);
     if (del) deleteCollectionSource(del.dataset.sourceDelete);
   });
+  $("#sourceTable")?.addEventListener("change", (event) => {
+    const status = event.target.closest("[data-source-status]");
+    if (status) updateCollectionSourceStatus(status.dataset.sourceStatus, status.value);
+  });
 
   $("#monitorFilters")?.addEventListener("click", (event) => {
     const button = event.target.closest("[data-filter]");
@@ -95,9 +103,28 @@ function bindEvents() {
     renderMonitor();
   });
 
+  document.addEventListener("click", (event) => {
+    const watchButton = event.target.closest("[data-watch-toggle]");
+    if (watchButton) toggleWatchItem(watchButton.dataset.watchToggle);
+  });
+
+  $("#riskLevelFilters")?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-risk-filter]");
+    if (!button) return;
+    state.riskAnalysisFilter = button.dataset.riskFilter;
+    renderRiskAnalysis();
+  });
+
   $("#knownPlatformCatalog")?.addEventListener("click", (event) => {
     const addButton = event.target.closest("[data-add-platform]");
     if (addButton) addKnownPlatform(addButton.dataset.addPlatform);
+  });
+
+  $("#sourceApplicationsPanel")?.addEventListener("click", (event) => {
+    const approveButton = event.target.closest("[data-approve-source]");
+    const rejectButton = event.target.closest("[data-reject-source]");
+    if (approveButton) reviewPlatformApplication(approveButton.dataset.approveSource, "approve");
+    if (rejectButton) reviewPlatformApplication(rejectButton.dataset.rejectSource, "reject");
   });
 
   $("#platformSettingsList")?.addEventListener("input", () => {
@@ -128,7 +155,7 @@ async function fetchJson(url, options = {}) {
 
 async function refreshAll() {
   if (!state.loggedIn) return;
-  await Promise.allSettled([loadHealth(), loadStatus(), loadItems(), loadCollectionSources(), loadPlatformSettings()]);
+  await Promise.allSettled([loadHealth(), loadStatus(), loadItems(), loadWatchlist(), loadCollectionSources(), loadPlatformSettings()]);
   renderAll();
 }
 
@@ -159,6 +186,17 @@ async function loadItems() {
   }
 }
 
+async function loadWatchlist() {
+  try {
+    const data = await fetchJson("/api/watchlist?limit=300");
+    state.watchlist = data.items || [];
+    state.watchTotal = data.total || state.watchlist.length;
+  } catch {
+    state.watchlist = [];
+    state.watchTotal = 0;
+  }
+}
+
 async function loadCollectionSources() {
   try {
     const data = await fetchJson("/api/collection-sources");
@@ -173,7 +211,7 @@ async function loadPlatformSettings() {
   try {
     state.platformSettings = await fetchJson("/api/platform-settings");
   } catch {
-    state.platformSettings = { platforms: {}, options: [], known_platforms: [] };
+    state.platformSettings = { platforms: {}, options: [], known_platforms: [], source_applications: [] };
   }
 }
 
@@ -184,9 +222,8 @@ function renderAll() {
   renderCollectionSources();
   renderMonitorFilters();
   renderMonitor();
+  renderTracking();
   renderRiskAnalysis();
-  renderWarnings();
-  renderSearchResults();
   renderProfile();
   renderAdminStatus();
   renderAdminSettings();
@@ -207,6 +244,8 @@ function switchView(view) {
     state.activeView = defaultViewForRole();
     return;
   }
+  if (view === "search") view = "monitor";
+  if (view === "warning") view = "risk";
   const target = views.includes(view) ? view : "home";
   if (adminViews.has(target) && state.role !== "admin") {
     window.alert("普通用户不能访问后台管理功能。");
@@ -379,6 +418,11 @@ function renderMonitorFilters() {
   $("#monitorFilters").innerHTML = filters.map(([id, label]) => `<button class="channel-pill ${state.feedFilter === id ? "is-active" : ""}" type="button" data-filter="${id}">${label}</button>`).join("");
 }
 
+function renderRiskLevelFilters() {
+  const filters = [["all", "全部"], ["medium", "中风险"], ["medium-high", "中高风险"], ["high", "高风险"]];
+  $("#riskLevelFilters").innerHTML = filters.map(([id, label]) => `<button class="channel-pill ${state.riskAnalysisFilter === id ? "is-active" : ""}" type="button" data-risk-filter="${id}">${label}</button>`).join("");
+}
+
 function renderMonitor() {
   const list = filteredItems();
   const visible = limitedMonitorItems(list);
@@ -387,21 +431,26 @@ function renderMonitor() {
   $("#items").innerHTML = visible.length ? visible.map(renderItem).join("") : emptyCard("当前没有符合条件的舆情数据。");
 }
 
+function renderTracking() {
+  $("#trackingMeta").textContent = `已追踪 ${state.watchTotal || state.watchlist.length} 条`;
+  $("#trackingItems").innerHTML = state.watchlist.length
+    ? state.watchlist.map((item) => renderItem(item, { trackingView: true })).join("")
+    : emptyCard("还没有加入追踪的舆情。");
+}
+
+function resetSearchRules() {
+  $("#searchForm")?.reset();
+  renderMonitor();
+}
+
 function renderRiskAnalysis() {
   $("#riskTypeChart").innerHTML = renderBars(countBy(state.items, inferRiskType), state.total || state.items.length || 1);
   $("#sentimentChart").innerHTML = renderBars(countBy(state.items, inferSentiment), state.total || state.items.length || 1);
-  const list = highRiskItems();
-  $("#riskMeta").textContent = `按总舆情 ${state.total || state.items.length || 0} 条分析，高风险 ${list.length} 条`;
-  $("#riskItems").innerHTML = list.length ? list.slice(0, 10).map(renderItem).join("") : emptyCard("当前暂无高风险分析结果。");
-}
-
-function renderWarnings() {
-  const list = highRiskItems();
-  $("#warningMeta").textContent = `预警 ${list.length} 条`;
-  $("#warningItems").innerHTML = list.length ? `
-    <table><thead><tr><th>等级</th><th>平台</th><th>预警内容</th><th>时间</th><th>状态</th><th>操作</th></tr></thead><tbody>
-      ${list.map((item) => `<tr><td>${riskBucket(item)}</td><td>${platformLabel(item.platform)}</td><td>${escapeHtml(shortText(item.text, 72))}</td><td>${escapeHtml(item.created_at || "")}</td><td>待处理</td><td><a href="/report?id=${encodeURIComponent(item._id)}" target="_blank">详情</a></td></tr>`).join("")}
-    </tbody></table>` : emptyTable("当前暂无预警。");
+  renderRiskLevelFilters();
+  const list = riskAnalysisItems();
+  const label = riskFilterLabel(state.riskAnalysisFilter);
+  $("#riskMeta").textContent = `按总舆情 ${state.total || state.items.length || 0} 条分析，${label} ${list.length} 条`;
+  $("#riskItems").innerHTML = list.length ? list.slice(0, 20).map(renderItem).join("") : emptyCard(`当前暂无${label}分析结果。`);
 }
 
 function renderProfile() {
@@ -460,37 +509,93 @@ async function savePassword(event) {
   }
 }
 
-function renderSearchResults() {
+function advancedFilteredItems(sourceItems = state.items) {
   const keyword = ($("#searchKeyword")?.value || "").trim();
   const platform = $("#searchPlatform")?.value || "";
   const risk = $("#searchRisk")?.value || "";
   const sentiment = $("#searchSentiment")?.value || "";
-  const list = state.items.filter((item) => {
-    if (keyword && !(`${item.text || ""} ${item.keyword || ""}`.includes(keyword))) return false;
+  const analyzeStatus = $("#searchAnalyzeStatus")?.value || "";
+  const imageRule = $("#searchImageRule")?.value || "";
+  return sourceItems.filter((item) => {
+    const haystack = `${item.text || ""} ${item.keyword || ""} ${item.screen_name || ""} ${item.platform_name || ""}`;
+    if (keyword && !haystack.includes(keyword)) return false;
     if (platform && item.platform !== platform) return false;
-    if (risk && !riskBucket(item).includes({ high: "高", medium: "中", low: "低" }[risk])) return false;
+    if (risk && !matchesRiskRule(item, risk)) return false;
     if (sentiment && inferSentiment(item) !== sentiment) return false;
+    if (analyzeStatus === "done" && item.analysis_status !== "done") return false;
+    if (analyzeStatus === "pending" && ["done", "error"].includes(item.analysis_status)) return false;
+    if (analyzeStatus === "error" && item.analysis_status !== "error") return false;
+    if (imageRule === "has" && !(item.pics || []).length) return false;
+    if (imageRule === "none" && (item.pics || []).length) return false;
     return true;
   });
-  $("#searchMeta").textContent = `在总舆情 ${state.total || state.items.length || 0} 条中找到 ${list.length} 条`;
-  $("#searchResults").innerHTML = list.length ? list.map(renderItem).join("") : emptyCard("没有找到符合条件的舆情。");
+}
+
+function matchesRiskRule(item, risk) {
+  const bucket = riskBucket(item);
+  if (risk === "high") return bucket === "高风险";
+  if (risk === "medium-high") return bucket === "中高风险";
+  if (risk === "medium") return bucket === "中风险";
+  if (risk === "low") return bucket === "低风险";
+  return true;
 }
 
 function renderCollectionSources() {
-  $("#sourceMeta").textContent = `${state.role === "admin" ? "全部" : "我的"}采集源 ${state.sources.length} 个`;
+  const platformCount = state.sources.filter((item) => item.source_kind === "platform").length;
+  const applicationCount = state.sources.length - platformCount;
+  $("#sourceMeta").textContent = `平台源 ${platformCount} 个，申请源 ${applicationCount} 个`;
+  const submit = $("#sourceForm button.primary");
+  const formId = $("#sourceId").value;
+  const formSource = state.sources.find((entry) => entry.id === formId);
+  const canUpdateAsUser = formSource && formSource.source_kind !== "platform" && !["已配置", "已通过"].includes(formSource.status);
+  const showUpdate = formId && (state.role === "admin" || canUpdateAsUser);
+  if (formId && state.role !== "admin" && !canUpdateAsUser) $("#sourceId").value = "";
+  if (submit) submit.textContent = state.role === "admin" ? (showUpdate ? "保存采集源" : "直接配置采集源") : (showUpdate ? "更新申请" : "提交采集申请");
   $("#sourceTable").innerHTML = state.sources.length ? `
     <table><thead><tr><th>平台名称</th><th>类型</th><th>网址</th><th>关键词</th><th>状态</th><th>提交人</th><th>操作</th></tr></thead><tbody>
       ${state.sources.map((item) => `<tr>
-        <td>${escapeHtml(item.platform_name)}</td><td>${escapeHtml(item.platform_type)}</td><td>${escapeHtml(shortText(item.target_url, 34))}</td>
-        <td>${escapeHtml(shortText(item.keywords, 30))}</td><td>${escapeHtml(item.status)}</td><td>${escapeHtml(ownerLabel(item.owner))}</td>
-        <td><button type="button" data-source-edit="${escapeHtml(item.id)}">编辑</button><button type="button" class="danger-inline" data-source-delete="${escapeHtml(item.id)}">删除</button></td>
+        <td><strong>${escapeHtml(item.platform_name)}</strong>${sourceKindBadge(item)}</td>
+        <td>${escapeHtml(item.platform_type)}</td><td>${escapeHtml(shortText(item.target_url, 34))}</td>
+        <td>${escapeHtml(shortText(item.keywords, 30))}</td><td>${renderSourceStatus(item)}</td><td>${escapeHtml(ownerLabel(item.owner))}</td>
+        <td>${renderSourceActions(item)}</td>
       </tr>`).join("")}
-    </tbody></table>` : emptyTable("还没有采集源，请先提交采集需求。");
+    </tbody></table>` : emptyTable("还没有采集源，请先提交采集申请。");
+}
+
+function renderSourceStatus(item) {
+  const status = item.status || "待审核";
+  if (state.role !== "admin" || item.source_kind === "platform") return escapeHtml(status);
+  const options = ["待审核", "已通过", "已退回", "已停用", "已配置"];
+  return `<select class="inline-select" data-source-status="${escapeHtml(item.id)}">${options.map((option) => `<option value="${escapeHtml(option)}" ${option === status ? "selected" : ""}>${escapeHtml(option)}</option>`).join("")}</select>`;
+}
+
+function sourceKindBadge(item) {
+  if (item.source_kind === "platform") return "<span class='mini-badge ok'>任务平台</span>";
+  if (item.source_kind === "custom" || item.status === "已通过") return "<span class='mini-badge pending'>扩展平台</span>";
+  return "";
+}
+
+function renderSourceActions(item) {
+  const isPlatform = item.source_kind === "platform";
+  const isOwner = item.owner === state.user;
+  const canEdit = state.role === "admin" || (!isPlatform && isOwner && !["已配置", "已通过"].includes(item.status));
+  const canDelete = state.role === "admin" && !isPlatform;
+  const actions = [];
+  if (canEdit) actions.push(`<button type="button" data-source-edit="${escapeHtml(item.id)}">${state.role === "admin" ? "配置" : "修改申请"}</button>`);
+  if (canDelete) actions.push(`<button type="button" class="danger-inline" data-source-delete="${escapeHtml(item.id)}">删除</button>`);
+  if (!actions.length) return `<span class="status-empty">${isPlatform ? "系统平台源" : "无可用操作"}</span>`;
+  return actions.join("");
 }
 
 async function saveCollectionSource(event) {
   event.preventDefault();
-  const id = $("#sourceId").value;
+  const rawId = $("#sourceId").value;
+  const currentSource = state.sources.find((entry) => entry.id === rawId);
+  const cannotUpdateAsUser = state.role !== "admin" && currentSource && (
+    currentSource.source_kind === "platform" || ["已配置", "已通过"].includes(currentSource.status)
+  );
+  const id = cannotUpdateAsUser ? "" : rawId;
+  if (cannotUpdateAsUser) $("#sourceId").value = "";
   const payload = {
     platform_name: $("#sourcePlatformName").value,
     target_url: $("#sourceTargetUrl").value,
@@ -504,6 +609,7 @@ async function saveCollectionSource(event) {
       method: id ? "PUT" : "POST",
       body: JSON.stringify(payload),
     });
+    if (!id && state.role !== "admin") window.alert("采集申请已提交，等待管理员审核。");
     resetSourceForm();
     await loadCollectionSources();
     renderCollectionSources();
@@ -515,6 +621,14 @@ async function saveCollectionSource(event) {
 function fillSourceForm(id) {
   const item = state.sources.find((entry) => entry.id === id);
   if (!item) return;
+  if (state.role !== "admin" && item.source_kind === "platform") {
+    window.alert("普通用户不能修改系统采集源，请提交新的采集申请。");
+    return;
+  }
+  if (state.role !== "admin" && ["已配置", "已通过"].includes(item.status)) {
+    window.alert("已通过的采集源不能直接修改，请重新提交申请。");
+    return;
+  }
   $("#sourceId").value = item.id;
   $("#sourcePlatformName").value = item.platform_name || "";
   $("#sourceTargetUrl").value = item.target_url || "";
@@ -523,9 +637,14 @@ function fillSourceForm(id) {
   $("#sourceTimeRange").value = item.time_range || "近两个月";
   $("#sourceKeywords").value = item.keywords || "";
   switchView("collection");
+  renderCollectionSources();
 }
 
 async function deleteCollectionSource(id) {
+  if (state.role !== "admin") {
+    window.alert("普通用户没有删减采集源列表的权限。");
+    return;
+  }
   if (!window.confirm("确定删除这个采集源吗？")) return;
   try {
     await fetchJson(`/api/collection-sources/${encodeURIComponent(id)}`, { method: "DELETE" });
@@ -539,6 +658,23 @@ async function deleteCollectionSource(id) {
 function resetSourceForm() {
   $("#sourceForm").reset();
   $("#sourceId").value = "";
+  renderCollectionSources();
+}
+
+async function updateCollectionSourceStatus(id, status) {
+  if (state.role !== "admin") return;
+  const item = state.sources.find((entry) => entry.id === id);
+  if (!item) return;
+  try {
+    await fetchJson(`/api/collection-sources/${encodeURIComponent(id)}`, {
+      method: "PUT",
+      body: JSON.stringify({ ...item, status }),
+    });
+    await loadCollectionSources();
+    renderCollectionSources();
+  } catch (error) {
+    window.alert(error.message);
+  }
 }
 
 function renderAdminStatus() {
@@ -559,8 +695,23 @@ function renderAdminStatus() {
 
 function renderAdminSettings() {
   if (state.role !== "admin") return;
+  renderSourceApplicationsPanel();
   renderKnownPlatformCatalog();
   renderPlatformSettingsCards();
+}
+
+function renderSourceApplicationsPanel() {
+  const list = (state.platformSettings.source_applications || []).filter((item) => !["已通过", "已配置"].includes(item.status));
+  $("#sourceApplicationsPanel").innerHTML = list.length ? list.map((item) => {
+    return `<article class="platform-settings-card source-application-card source-application-summary-card">
+      <div class="source-application-summary">
+        <span>平台名：${escapeHtml(item.platform_name || "未命名平台")}</span>
+        <span>提交人：${escapeHtml(ownerLabel(item.owner))}</span>
+        <span>提交时间：${escapeHtml(item.created_at || "")}</span>
+        <a class="report-link" href="/platform-application?id=${encodeURIComponent(item.id)}" target="_blank">查看详情</a>
+      </div>
+    </article>`;
+  }).join("") : emptyCard("暂无待处理的前台采集申请。");
 }
 
 function renderKnownPlatformCatalog() {
@@ -603,12 +754,40 @@ async function savePlatformSettings() {
       max_pages: Number(readSetting(config.id, "max_pages", "number", config.max_pages || 10)),
     };
   });
-  payload.added_platforms = (state.platformSettings.known_platforms || []).filter((item) => item.added).map((item) => item.id);
+  const corePlatformIds = new Set(["weibo", "douyin", "tieba", "xhs"]);
+  const knownAdded = (state.platformSettings.known_platforms || []).filter((item) => item.added).map((item) => item.id);
+  const approvedAdded = Object.values(state.platformSettings.platforms || {})
+    .filter((item) => !corePlatformIds.has(item.id) && !(state.platformSettings.known_platforms || []).some((known) => known.id === item.id))
+    .map((item) => item.id);
+  payload.added_platforms = [...new Set([...knownAdded, ...approvedAdded])];
   try {
     state.platformSettings = await fetchJson("/api/platform-settings", { method: "POST", body: JSON.stringify(payload) });
     state.settingsDirty = false;
     renderAdminSettings();
     window.alert("平台配置已保存。");
+  } catch (error) {
+    window.alert(error.message);
+  }
+}
+
+async function reviewPlatformApplication(id, status) {
+  const config = {
+    cookie: readApplicationField(id, "cookie", "text", ""),
+    keywords: readApplicationField(id, "keywords", "text", ""),
+    recent_days: Number(readApplicationField(id, "recent_days", "number", 60)),
+    max_pages: Number(readApplicationField(id, "max_pages", "number", 10)),
+    require_images: readApplicationField(id, "require_images", "checkbox", true),
+  };
+  try {
+    state.platformSettings = await fetchJson(`/api/platform-settings/applications/${encodeURIComponent(id)}/review`, {
+      method: "POST",
+      body: JSON.stringify({ status, platform_config: config }),
+    });
+    state.settingsDirty = false;
+    await loadCollectionSources();
+    renderAdminSettings();
+    renderCollectionSources();
+    window.alert(status === "approve" ? "申请已同意，平台已加入扩展平台与采集源列表。" : "申请已退回。");
   } catch (error) {
     window.alert(error.message);
   }
@@ -637,23 +816,30 @@ function readSetting(id, field, type, fallback) {
   return type === "checkbox" ? el.checked : el.value;
 }
 
+function readApplicationField(id, field, type, fallback) {
+  const el = document.querySelector(`[data-application="${id}"][data-field="${field}"]`);
+  if (!el) return fallback;
+  return type === "checkbox" ? el.checked : el.value;
+}
+
 function readLines(id, field) {
   return String(readSetting(id, field, "text", "") || "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
 }
 
 function renderStaticAdminPages() {
   $("#ruleCards").innerHTML = ["平台适配规则", "关键词规则", "抓取字段", "反爬策略参数", "采集频率", "数据清洗规则"].map((title) => `<article class="admin-card"><h3>${title}</h3><p>该项由管理员在后台维护，普通用户前台不可见。</p></article>`).join("");
-  $("#permissionMatrix").innerHTML = `<table><thead><tr><th>角色</th><th>前台业务功能</th><th>后台管理功能</th><th>采集源权限</th></tr></thead><tbody><tr><td>普通用户</td><td>首页、数据采集、舆情监测、风险分析、检索、预警</td><td>无权限</td><td>只能维护自己提交的采集源</td></tr><tr><td>管理员</td><td>全部前台功能</td><td>平台、任务、规则、模型、日志、用户、系统设置</td><td>可维护全部采集源和监测任务</td></tr></tbody></table>`;
+  $("#permissionMatrix").innerHTML = `<table><thead><tr><th>角色</th><th>前台业务功能</th><th>后台管理功能</th><th>采集源权限</th></tr></thead><tbody><tr><td>普通用户</td><td>首页、数据采集、舆情监测、风险分析</td><td>无权限</td><td>只能查看平台源并提交采集申请，不能删减采集源列表</td></tr><tr><td>管理员</td><td>全部前台功能</td><td>平台、任务、规则、模型、日志、用户、系统设置</td><td>可直接配置采集源，并审核、退回或删除申请源</td></tr></tbody></table>`;
   $("#systemSettings").innerHTML = ["基础参数配置", "系统字典配置", "风险等级规则", "预警阈值配置", "数据存储配置"].map((title) => `<article class="admin-card"><h3>${title}</h3><p>用于系统维护和验收演示，入口仅管理员可见。</p></article>`).join("");
 }
 
 function filteredItems() {
-  return state.items.filter((item) => {
+  const quickFiltered = state.items.filter((item) => {
     if (["weibo", "douyin", "tieba", "xhs"].includes(state.feedFilter)) return item.platform === state.feedFilter;
     if (state.feedFilter === "high") return riskScore(item) >= 80;
     if (state.feedFilter === "recent") return isWithinRecentDays(item.created_at, 60);
     return true;
   });
+  return advancedFilteredItems(quickFiltered);
 }
 
 function limitedMonitorItems(list) {
@@ -666,14 +852,73 @@ function highRiskItems() {
   return state.items.filter((item) => riskScore(item) >= 80).slice().sort((a, b) => riskScore(b) - riskScore(a));
 }
 
-function renderItem(item) {
+function riskAnalysisItems() {
+  return state.items
+    .filter((item) => matchesRiskAnalysisFilter(item, state.riskAnalysisFilter))
+    .slice()
+    .sort((a, b) => riskScore(b) - riskScore(a));
+}
+
+function matchesRiskAnalysisFilter(item, filter) {
+  const score = riskScore(item);
+  if (!Number.isFinite(score)) return false;
+  if (filter === "high") return score >= 80;
+  if (filter === "medium-high") return score >= 60 && score < 80;
+  if (filter === "medium") return score >= 40 && score < 60;
+  return true;
+}
+
+function riskFilterLabel(filter) {
+  return { all: "全部风险", medium: "中风险", "medium-high": "中高风险", high: "高风险" }[filter] || "中高风险";
+}
+
+function watchIdSet() {
+  const ids = new Set();
+  state.watchlist.forEach((item) => {
+    if (item._id) ids.add(String(item._id));
+    if (item.id) ids.add(String(item.id));
+  });
+  return ids;
+}
+
+function itemDocId(item) {
+  return String(item._id || item.id || "");
+}
+
+function isWatched(item) {
+  const ids = watchIdSet();
+  return ids.has(String(item._id || "")) || ids.has(String(item.id || ""));
+}
+
+async function toggleWatchItem(docId) {
+  if (!docId) return;
+  const tracked = watchIdSet().has(String(docId));
+  try {
+    const data = await fetchJson(`/api/watchlist${tracked ? `/${encodeURIComponent(docId)}` : ""}`, {
+      method: tracked ? "DELETE" : "POST",
+      body: tracked ? undefined : JSON.stringify({ id: docId }),
+    });
+    state.watchlist = data.items || [];
+    state.watchTotal = data.total || state.watchlist.length;
+    renderMonitor();
+    renderTracking();
+    renderRiskAnalysis();
+  } catch (error) {
+    window.alert(error.message);
+  }
+}
+
+function renderItem(item, options = {}) {
   const score = riskScore(item);
   const reasons = item.analysis?.summary?.reasons || [];
+  const docId = itemDocId(item);
+  const watched = isWatched(item);
   return `<article class="weibo">
     <div class="card-head"><div class="user-head"><span class="avatar">${escapeHtml(getAvatarText(item.screen_name))}</span><div class="user-copy"><strong>${escapeHtml(item.screen_name || "未知用户")}</strong></div></div><div><div class="meta"><span class="platform-chip">${platformLabel(item.platform)}</span><span>${escapeHtml(item.created_at || "")}</span><span>情感：${inferSentiment(item)}</span><span>${inferRiskType(item)}</span></div></div><div class="risk ${scoreLevelClass(score)}"><span>${riskBucket(item)}</span><strong>${Number.isFinite(score) ? score.toFixed(1) : "--"}</strong></div></div>
+    <div class="card-actions"><button type="button" class="${watched ? "secondary" : "primary"}" data-watch-toggle="${escapeHtml(docId)}">${watched ? "取消追踪" : "加入追踪"}</button></div>
     <p class="text">${escapeHtml(item.text || "")}</p>
     <div class="reason-list">${reasons.length ? reasons.slice(0, 4).map((reason) => `<span>${escapeHtml(reason)}</span>`).join("") : `<span>${escapeHtml(item.analysis_status || "待分析")}</span>`}</div>
-    <a class="report-link" href="/report?id=${encodeURIComponent(item._id)}" target="_blank">查看详情</a>
+    <a class="report-link" href="/report?id=${encodeURIComponent(docId)}" target="_blank">查看详情</a>
   </article>`;
 }
 

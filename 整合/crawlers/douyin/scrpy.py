@@ -483,7 +483,22 @@ def load_search_keywords() -> List[str]:
     return result
 
 
-def run_crawler(controller=None, log=print, progress=None) -> Dict[str, int]:
+def write_analysis_fields(collection, item):
+    collection.update_one(
+        {"id": item["id"]},
+        {
+            "$set": {
+                "analysis": item.get("analysis"),
+                "analysis_status": item.get("analysis_status"),
+                "analysis_error": item.get("analysis_error", ""),
+                "analysis_image": item.get("analysis_image", ""),
+                "analysis_at": item.get("analysis_at"),
+            }
+        },
+    )
+
+
+def run_crawler(controller=None, log=print, progress=None, item_callback=None) -> Dict[str, int]:
     session = build_session()
     sources = load_sources()
     search_keywords = load_search_keywords()
@@ -567,6 +582,14 @@ def run_crawler(controller=None, log=print, progress=None) -> Dict[str, int]:
             seen.add(item["id"])
             log(f"已写入: {item.get('screen_name')} / {item.get('id')}")
             report_progress()
+            if item_callback:
+                try:
+                    item_callback(item)
+                except Exception as exc:
+                    item["analysis_status"] = "error"
+                    item["analysis_error"] = str(exc)
+                    log(f"多模态分析失败，抖音 {item['id']}: {exc}")
+                write_analysis_fields(collection, item)
 
         for keyword in search_keywords:
             if max_items > 0 and inserted >= max_items:

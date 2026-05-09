@@ -42,7 +42,7 @@ class Design_sense():
 
 
 if __name__ == "__main__":
-    imgs = "pics/42df34ee5174b3088d54020817c50abd.jpeg"
+    imgs = r"C:\Users\R9000P\Desktop\毕设\整合\pics\490f705bd73faaa6711001ea4ae5de15.jpeg"
     model = Design_sense()
     mean, std = model.predict(imgs)
     print("NIMA Score : %0.3f +- (%0.3f)" % (mean, std))

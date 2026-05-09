@@ -68,6 +68,9 @@ seen_ids.txt
 platform_settings.json
 */platform_settings.json
 **/platform_settings.json
+runtime_config.json
+*/runtime_config.json
+**/runtime_config.json
 watchlist.json
 */watchlist.json
 **/watchlist.json

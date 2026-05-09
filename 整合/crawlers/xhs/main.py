@@ -392,6 +392,7 @@ class KeywordMongoSpider:
         log=None,
         progress=None,
         seen_store=None,
+        item_callback=None,
     ) -> Dict[str, int]:
         log = log or logger.info
         stats = {"searched": len(notes), "fetched": 0, "saved": 0, "failed": 0, "inserted": 0, "skipped": 0, "unmatched": 0, "discarded": 0}
@@ -455,7 +456,7 @@ class KeywordMongoSpider:
             batch.append(detail)
             batch_ids.append(note_id)
             if len(batch) >= batch_size:
-                saved = self.save_notes(keyword, batch)
+                saved = self.save_notes(keyword, batch, item_callback=item_callback, log=log)
                 if seen_store:
                     for saved_id in batch_ids:
                         seen_store.add(saved_id)
@@ -469,7 +470,7 @@ class KeywordMongoSpider:
                 time.sleep(sleep_seconds)
 
         if batch:
-            saved = self.save_notes(keyword, batch)
+            saved = self.save_notes(keyword, batch, item_callback=item_callback, log=log)
             if seen_store:
                 for saved_id in batch_ids:
                     seen_store.add(saved_id)
@@ -495,6 +496,7 @@ class KeywordMongoSpider:
         log=None,
         progress=None,
         seen_store=None,
+        item_callback=None,
     ) -> Dict[str, int]:
         notes = self.search_notes(keyword, limit, sort_type_choice, note_type, note_time, note_range, pos_distance, geo)
         return self.process_search_notes(
@@ -506,11 +508,27 @@ class KeywordMongoSpider:
             log=log,
             progress=progress,
             seen_store=seen_store,
+            item_callback=item_callback,
         )
 
-    def save_notes(self, keyword: str, notes: Iterable[Dict]) -> int:
+    def write_analysis_fields(self, doc: Dict):
+        self.collection.update_one(
+            {"id": doc["id"]},
+            {
+                "$set": {
+                    "analysis": doc.get("analysis"),
+                    "analysis_status": doc.get("analysis_status"),
+                    "analysis_error": doc.get("analysis_error", ""),
+                    "analysis_image": doc.get("analysis_image", ""),
+                    "analysis_at": doc.get("analysis_at"),
+                }
+            },
+        )
+
+    def save_notes(self, keyword: str, notes: Iterable[Dict], item_callback=None, log=None) -> int:
         now = datetime.now(timezone.utc)
         operations = []
+        docs = []
         for note in notes:
             local_pics = download_note_images(note, self.cookies_str, self.proxies, self.image_path) if self.download_images else []
             doc = {
@@ -518,6 +536,7 @@ class KeywordMongoSpider:
                 "crawled_at": now,
                 "updated_at": now,
             }
+            docs.append(doc)
             operations.append(
                 UpdateOne(
                     {"id": doc["id"]},
@@ -532,6 +551,16 @@ class KeywordMongoSpider:
         except BulkWriteError as exc:
             logger.error(f"mongo bulk write error: {exc.details}")
             raise
+        if item_callback:
+            for doc in docs:
+                try:
+                    item_callback(doc)
+                except Exception as exc:
+                    doc["analysis_status"] = "error"
+                    doc["analysis_error"] = str(exc)
+                    if log:
+                        log(f"多模态分析失败，小红书 {doc['id']}: {exc}")
+                self.write_analysis_fields(doc)
         return result.upserted_count + result.modified_count
 
     def close(self):
@@ -571,7 +600,7 @@ def read_keywords(value) -> List[str]:
     return [line.strip() for line in path.read_text(encoding="utf-8-sig").splitlines() if line.strip()]
 
 
-def run_crawler(controller=None, log=print, progress=None) -> Dict[str, int]:
+def run_crawler(controller=None, log=print, progress=None, item_callback=None) -> Dict[str, int]:
     load_dotenv(PROJECT_ROOT / ".env")
     keywords = read_keywords(getattr(setting, "KEYWORD_LIST", []))
     cookies = getattr(setting, "COOKIES", None) or os.getenv("COOKIES")
@@ -653,6 +682,7 @@ def run_crawler(controller=None, log=print, progress=None) -> Dict[str, int]:
                 controller=controller,
                 log=log,
                 seen_store=seen,
+                item_callback=item_callback,
             )
             merge(stats)
             log(f"搜索词 {keyword} 第 {page} 页完成：写入 {stats.get('inserted', 0)}，重复/跳过 {stats.get('skipped', 0)}")

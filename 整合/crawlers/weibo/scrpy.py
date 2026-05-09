@@ -499,6 +499,21 @@ def pick_crawl_state(states):
     return states[0]
 
 
+def write_analysis_fields(collection, item):
+    collection.update_one(
+        {"id": item["id"]},
+        {
+            "$set": {
+                "analysis": item.get("analysis"),
+                "analysis_status": item.get("analysis_status"),
+                "analysis_error": item.get("analysis_error", ""),
+                "analysis_image": item.get("analysis_image", ""),
+                "analysis_at": item.get("analysis_at"),
+            }
+        },
+    )
+
+
 def run_crawler(controller=None, log=print, progress=None, item_callback=None):
     start_date, end_date = get_date_range()
     filter_keywords = read_plain_keywords(setting.KEYWORD_LIST)
@@ -566,6 +581,7 @@ def run_crawler(controller=None, log=print, progress=None, item_callback=None):
                 crawl_states.remove(state)
 
             operations = []
+            pending_analysis = []
             for item in items:
                 if max_items > 0 and inserted >= max_items:
                     break
@@ -613,14 +629,8 @@ def run_crawler(controller=None, log=print, progress=None, item_callback=None):
                     report_progress()
                     log(f"丢弃图片下载失败微博: {item.get('id', '')}")
                     continue
-                if item_callback:
-                    try:
-                        item_callback(item)
-                    except Exception as exc:
-                        item["analysis_status"] = "error"
-                        item["analysis_error"] = str(exc)
-                        log(f"多模态分析失败，微博 {item['id']}: {exc}")
                 operations.append(UpdateOne({"id": item["id"]}, {"$set": item}, upsert=True))
+                pending_analysis.append(item)
                 seen.add(item["id"])
                 inserted += 1
                 report_progress()
@@ -631,6 +641,15 @@ def run_crawler(controller=None, log=print, progress=None, item_callback=None):
                     f"本页写入 {len(operations)} 条，累计写入 {inserted} 条，"
                     f"跳过重复 {skipped} 条，未命中关键词 {unmatched} 条，按时间丢弃 {discarded} 条。"
                 )
+                if item_callback:
+                    for item in pending_analysis:
+                        try:
+                            item_callback(item)
+                        except Exception as exc:
+                            item["analysis_status"] = "error"
+                            item["analysis_error"] = str(exc)
+                            log(f"多模态分析失败，微博 {item['id']}: {exc}")
+                        write_analysis_fields(collection, item)
             else:
                 log(
                     f"本页没有写入，累计跳过重复 {skipped} 条，"

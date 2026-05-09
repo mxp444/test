@@ -5,6 +5,7 @@ import json
 import os
 import sys
 import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
 from urllib.parse import quote, unquote
@@ -25,7 +26,7 @@ PLATFORM_SETTINGS_FILE = BASE_DIR / "backend" / "platform_settings.json"
 WATCHLIST_FILE = BASE_DIR / "backend" / "watchlist.json"
 COLLECTION_SOURCES_FILE = BASE_DIR / "backend" / "collection_sources.json"
 USERS_FILE = BASE_DIR / "backend" / "users.json"
-ENGINE_FILE = BASE_DIR / "多模态融合分析.py"
+RUNTIME_CONFIG_FILE = BASE_DIR / "backend" / "runtime_config.json"
 CRAWLER_DIR = BASE_DIR / "crawler"
 CRAWLERS_DIR = BASE_DIR / "crawlers"
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
@@ -72,6 +73,8 @@ _engine = None
 _engine_lock = threading.RLock()
 _runtime_ready = False
 _platform_defaults_cache = {}
+_startup_analysis_started = False
+_startup_analysis_lock = threading.Lock()
 
 
 def _read_text_lines(value):
@@ -101,16 +104,72 @@ def _safe_bool(value, default=False):
     return str(value).strip().lower() in {"1", "true", "yes", "on"}
 
 
+def load_runtime_config():
+    defaults = {
+        "analysis_engine_file": "多模态融合分析_API.py",
+        "analysis_max_workers": None,
+        "auto_analyze_crawled_items": True,
+        "platform_cookies": {},
+    }
+    if not RUNTIME_CONFIG_FILE.exists():
+        return defaults
+    try:
+        data = json.loads(RUNTIME_CONFIG_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        return defaults
+    if not isinstance(data, dict):
+        return defaults
+    cookies = data.get("platform_cookies")
+    return {
+        "analysis_engine_file": str(data.get("analysis_engine_file") or defaults["analysis_engine_file"]).strip(),
+        "analysis_max_workers": data.get("analysis_max_workers"),
+        "auto_analyze_crawled_items": _safe_bool(
+            data.get("auto_analyze_crawled_items"),
+            defaults["auto_analyze_crawled_items"],
+        ),
+        "platform_cookies": cookies if isinstance(cookies, dict) else {},
+    }
+
+
+def resolve_runtime_path(value, default_name):
+    raw = str(value or default_name).strip() or default_name
+    candidate = Path(os.getenv("RISK_ENGINE_FILE") or raw).expanduser()
+    if candidate.is_absolute():
+        return candidate.resolve()
+    return (BASE_DIR / candidate).resolve()
+
+
+RUNTIME_CONFIG = load_runtime_config()
+ENGINE_FILE = resolve_runtime_path(RUNTIME_CONFIG.get("analysis_engine_file"), "多模态融合分析_API.py")
+DEFAULT_ANALYSIS_WORKERS = 4 if ENGINE_FILE.name.endswith("_API.py") else 1
+ANALYSIS_MAX_WORKERS = max(
+    1,
+    int(os.getenv("ANALYSIS_MAX_WORKERS") or RUNTIME_CONFIG.get("analysis_max_workers") or DEFAULT_ANALYSIS_WORKERS),
+)
+AUTO_ANALYZE_CRAWLED_ITEMS = _safe_bool(
+    os.getenv("AUTO_ANALYZE_CRAWLED_ITEMS"),
+    bool(RUNTIME_CONFIG.get("auto_analyze_crawled_items", True)),
+)
+
+
+def runtime_cookie(platform, default=""):
+    cookies = RUNTIME_CONFIG.get("platform_cookies", {})
+    value = cookies.get(platform) if isinstance(cookies, dict) else None
+    value = str(value or "").strip()
+    return value if value else default
+
+
 def load_platform_settings_store():
     if not PLATFORM_SETTINGS_FILE.exists():
-        return {"added_platforms": [], "platforms": {}}
+        return {"added_platforms": [], "platforms": {}, "custom_platforms": {}}
     try:
         data = json.loads(PLATFORM_SETTINGS_FILE.read_text(encoding="utf-8"))
     except Exception:
-        return {"added_platforms": [], "platforms": {}}
+        return {"added_platforms": [], "platforms": {}, "custom_platforms": {}}
     return {
         "added_platforms": [str(item).strip() for item in data.get("added_platforms", []) if str(item).strip()],
         "platforms": data.get("platforms", {}) if isinstance(data.get("platforms"), dict) else {},
+        "custom_platforms": data.get("custom_platforms", {}) if isinstance(data.get("custom_platforms"), dict) else {},
     }
 
 
@@ -137,6 +196,7 @@ def load_watchlist_store():
         items.append(
             {
                 "id": doc_id,
+                "owner": str(entry.get("owner") or "business-user").strip(),
                 "added_at": str(entry.get("added_at", "")).strip() or datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             }
         )
@@ -260,22 +320,154 @@ def sanitize_collection_source(payload, existing=None):
     }
 
 
+PLATFORM_SOURCE_META = {
+    "weibo": {"platform_type": "社交媒体", "target_url": "https://s.weibo.com", "keywords": "按微博平台设置关键词"},
+    "douyin": {"platform_type": "短视频平台", "target_url": "https://www.douyin.com", "keywords": "按抖音平台设置关键词"},
+    "tieba": {"platform_type": "贴吧", "target_url": "https://tieba.baidu.com", "keywords": "按百度贴吧平台设置关键词"},
+    "xhs": {"platform_type": "社区平台", "target_url": "https://www.xiaohongshu.com", "keywords": "按小红书平台设置关键词"},
+}
+
+
+def platform_collection_source(platform, info):
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    meta = PLATFORM_SOURCE_META.get(platform, {})
+    return {
+        "id": f"platform-{platform}",
+        "owner": "admin",
+        "platform_id": platform,
+        "platform_name": info.get("label") or platform,
+        "platform_type": meta.get("platform_type", "平台"),
+        "target_url": meta.get("target_url", ""),
+        "account_name": "",
+        "keywords": meta.get("keywords", "按平台设置关键词"),
+        "time_range": "按平台设置",
+        "status": "已配置",
+        "source_kind": "platform",
+        "created_at": now,
+        "updated_at": now,
+        "result_count": 0,
+    }
+
+
+def normalize_collection_source_item(item):
+    item = dict(item or {})
+    source_id = str(item.get("id") or uuid4().hex)
+    item["id"] = source_id
+    item.setdefault("owner", "admin" if source_id.startswith("platform-") else "business-user")
+    item.setdefault("source_kind", "platform" if source_id.startswith("platform-") else "application")
+    item.setdefault("status", "已配置" if item.get("source_kind") == "platform" else "待审核")
+    if item.get("source_kind") == "application" and item.get("status") in {"已配置", "待采集", "规则配置中"}:
+        item["status"] = "待审核"
+    if item.get("source_kind") == "application" and item.get("status") == "已通过":
+        item["source_kind"] = "custom"
+    item.setdefault("created_at", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    item.setdefault("updated_at", item.get("created_at"))
+    item.setdefault("result_count", 0)
+    return item
+
+
+def ensure_platform_collection_sources(items):
+    source_items = items if isinstance(items, list) else []
+    normalized = [normalize_collection_source_item(item) for item in source_items if isinstance(item, dict)]
+    by_id = {item.get("id"): item for item in normalized}
+    changed = len(normalized) != len(source_items)
+    merged = []
+    for platform, info in PLATFORMS.items():
+        seed = platform_collection_source(platform, info)
+        existing = by_id.pop(seed["id"], None)
+        if existing:
+            seed.update(existing)
+            seed["source_kind"] = "platform"
+            seed["platform_id"] = platform
+            seed["owner"] = "admin"
+            seed["platform_name"] = info.get("label") or seed.get("platform_name") or platform
+        else:
+            changed = True
+        merged.append(seed)
+    merged.extend(by_id.values())
+    return merged, changed
+
+
+def load_collection_sources_store():
+    if COLLECTION_SOURCES_FILE.exists():
+        try:
+            data = json.loads(COLLECTION_SOURCES_FILE.read_text(encoding="utf-8"))
+        except Exception:
+            data = []
+    else:
+        data = []
+    items, changed = ensure_platform_collection_sources(data)
+    if changed or not COLLECTION_SOURCES_FILE.exists():
+        save_collection_sources_store(items)
+    return items
+
+
+def visible_collection_sources():
+    items = load_collection_sources_store()
+    user = request_user()
+    return [
+        item
+        for item in items
+        if item.get("source_kind") == "platform"
+        or item.get("source_kind") == "custom"
+    ]
+
+
+def collection_source_applications():
+    apps = []
+    for item in load_collection_sources_store():
+        if item.get("source_kind") == "platform":
+            continue
+        apps.append(dict(item))
+    return sorted(apps, key=lambda item: item.get("updated_at") or item.get("created_at") or "", reverse=True)
+
+
+def sanitize_collection_source(payload, existing=None):
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    role = request_role()
+    source_kind = existing.get("source_kind") if existing else ("custom" if role == "admin" else "application")
+    status = existing.get("status") if existing else ("已配置" if role == "admin" else "待审核")
+    status = status or ("已配置" if source_kind == "platform" else "待审核")
+    if role == "admin" and "status" in payload:
+        status = str(payload.get("status") or status).strip() or status
+    elif existing and source_kind != "platform" and status in {"已退回", "待审核"}:
+        status = "待审核"
+    return {
+        "id": existing.get("id") if existing else uuid4().hex,
+        "owner": existing.get("owner") if existing else request_user(),
+        "source_kind": source_kind,
+        "platform_id": existing.get("platform_id", "") if existing else "",
+        "platform_name": str(payload.get("platform_name") or payload.get("platformName") or "").strip(),
+        "platform_type": str(payload.get("platform_type") or payload.get("platformType") or "新闻网站").strip(),
+        "target_url": str(payload.get("target_url") or payload.get("targetUrl") or "").strip(),
+        "account_name": str(payload.get("account_name") or payload.get("accountName") or "").strip(),
+        "keywords": str(payload.get("keywords") or "").strip(),
+        "time_range": str(payload.get("time_range") or payload.get("timeRange") or "近两个月").strip(),
+        "status": status,
+        "created_at": existing.get("created_at") if existing else now,
+        "updated_at": now,
+        "result_count": int(existing.get("result_count", 0)) if existing else 0,
+    }
+
+
 def add_watchlist_item(doc_id):
     doc_id = str(doc_id or "").strip()
     if not doc_id:
         raise ValueError("missing id")
+    owner = request_user()
     items = load_watchlist_store()
-    if any(entry["id"] == doc_id for entry in items):
+    if any(entry["id"] == doc_id and entry.get("owner") == owner for entry in items):
         return False
-    items.insert(0, {"id": doc_id, "added_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
+    items.insert(0, {"id": doc_id, "owner": owner, "added_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
     save_watchlist_store(items)
     return True
 
 
 def remove_watchlist_item(doc_id):
     doc_id = str(doc_id or "").strip()
+    owner = request_user()
     items = load_watchlist_store()
-    next_items = [entry for entry in items if entry["id"] != doc_id]
+    next_items = [entry for entry in items if not (entry["id"] == doc_id and entry.get("owner") == owner)]
     changed = len(next_items) != len(items)
     if changed:
         save_watchlist_store(next_items)
@@ -283,7 +475,8 @@ def remove_watchlist_item(doc_id):
 
 
 def load_watchlist_items(limit=100):
-    watchlist = load_watchlist_store()
+    owner = request_user()
+    watchlist = [entry for entry in load_watchlist_store() if entry.get("owner") == owner]
     items = []
     added_map = {entry["id"]: entry.get("added_at", "") for entry in watchlist}
     for entry in watchlist[:limit]:
@@ -372,8 +565,9 @@ def extract_platform_defaults(platform):
     raise KeyError(platform)
 
 
-def placeholder_platform_defaults(platform):
-    info = KNOWN_EXTRA_PLATFORMS.get(platform, {})
+def placeholder_platform_defaults(platform, custom_platforms=None):
+    custom_platforms = custom_platforms or {}
+    info = KNOWN_EXTRA_PLATFORMS.get(platform, {}) or custom_platforms.get(platform, {})
     return {
         "id": platform,
         "label": info.get("label", platform),
@@ -415,6 +609,7 @@ def sanitize_platform_config(platform, payload, defaults):
 
 def build_platform_settings_payload():
     store = load_platform_settings_store()
+    custom_platforms = store.get("custom_platforms", {})
     settings = {}
     ordered_ids = list(PLATFORMS)
     for platform in store.get("added_platforms", []):
@@ -422,9 +617,11 @@ def build_platform_settings_payload():
             ordered_ids.append(platform)
 
     for platform in ordered_ids:
-        defaults = extract_platform_defaults(platform) if platform in PLATFORMS else placeholder_platform_defaults(platform)
+        defaults = extract_platform_defaults(platform) if platform in PLATFORMS else placeholder_platform_defaults(platform, custom_platforms)
         saved = store.get("platforms", {}).get(platform, {})
-        settings[platform] = sanitize_platform_config(platform, saved, defaults)
+        config = sanitize_platform_config(platform, saved, defaults)
+        config["cookie"] = runtime_cookie(platform, config.get("cookie", ""))
+        settings[platform] = config
 
     options = [
         {
@@ -446,19 +643,26 @@ def build_platform_settings_payload():
         }
         for platform, info in KNOWN_EXTRA_PLATFORMS.items()
     ]
-    return {"platforms": settings, "options": options, "known_platforms": known_platforms}
+    return {
+        "platforms": settings,
+        "options": options,
+        "known_platforms": known_platforms,
+        "source_applications": collection_source_applications(),
+    }
 
 
 def persist_platform_settings(payload):
     current = build_platform_settings_payload()
     settings = current["platforms"]
+    store = load_platform_settings_store()
+    custom_platforms = store.get("custom_platforms", {})
     added_platforms = []
     for platform in payload.get("added_platforms", []):
         key = str(platform).strip()
-        if key in KNOWN_EXTRA_PLATFORMS and key not in added_platforms:
+        if (key in KNOWN_EXTRA_PLATFORMS or key in custom_platforms) and key not in added_platforms:
             added_platforms.append(key)
     for platform in added_platforms:
-        settings.setdefault(platform, placeholder_platform_defaults(platform))
+        settings.setdefault(platform, placeholder_platform_defaults(platform, custom_platforms))
 
     platform_payload = payload.get("platforms", {}) if isinstance(payload.get("platforms"), dict) else {}
     for platform, defaults in list(settings.items()):
@@ -469,6 +673,7 @@ def persist_platform_settings(payload):
 
     store = {
         "added_platforms": added_platforms,
+        "custom_platforms": custom_platforms,
         "platforms": {
             platform: {
                 "selected": config["selected"],
@@ -487,6 +692,85 @@ def persist_platform_settings(payload):
     }
     save_platform_settings_store(store)
     return build_platform_settings_payload()
+
+
+def source_platform_key(source):
+    existing = str(source.get("platform_id") or "").strip()
+    if existing and existing not in PLATFORMS:
+        return existing
+    return f"source-{str(source.get('id') or uuid4().hex)[:12]}"
+
+
+def update_source_application_review(source_id, payload):
+    status = str(payload.get("status") or "").strip()
+    if status in {"approve", "approved", "pass", "agree", "同意", "通过"}:
+        status = "已通过"
+    if status in {"reject", "rejected", "return", "退回", "驳回"}:
+        status = "已退回"
+    if status not in {"已通过", "已退回"}:
+        raise ValueError("审核状态只能是已通过或已退回。")
+
+    items = load_collection_sources_store()
+    source = None
+    source_index = -1
+    for index, item in enumerate(items):
+        if item.get("id") == source_id:
+            source = dict(item)
+            source_index = index
+            break
+    if source is None:
+        raise KeyError("采集源申请不存在。")
+    if source.get("source_kind") == "platform":
+        raise ValueError("系统内置平台源不需要审核。")
+
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    source["status"] = status
+    source["reviewed_by"] = request_user()
+    source["reviewed_at"] = now
+    source["review_comment"] = str(payload.get("review_comment") or payload.get("comment") or "").strip()
+
+    platform_payload = payload.get("platform_config") if isinstance(payload.get("platform_config"), dict) else {}
+    if status == "已通过":
+        platform_key = source_platform_key(source)
+        source["platform_id"] = platform_key
+        source["source_kind"] = "custom"
+
+        store = load_platform_settings_store()
+        custom_platforms = store.get("custom_platforms", {})
+        custom_platforms[platform_key] = {
+            "label": source.get("platform_name") or platform_key,
+            "description": f"由前台采集申请接入：{source.get('platform_type') or '未分类'}",
+            "target_url": source.get("target_url", ""),
+            "source_id": source.get("id", ""),
+            "owner": source.get("owner", ""),
+            "platform_type": source.get("platform_type", ""),
+        }
+        added_platforms = [item for item in store.get("added_platforms", []) if item != platform_key]
+        added_platforms.append(platform_key)
+
+        store["added_platforms"] = added_platforms
+        store["custom_platforms"] = custom_platforms
+        store.setdefault("platforms", {})[platform_key] = {
+            "selected": _safe_bool(platform_payload.get("selected"), False),
+            "cookie": str(platform_payload.get("cookie", "") or "").strip(),
+            "keywords": _read_text_lines(platform_payload.get("keywords") or source.get("keywords", "")),
+            "discovery_keywords": _read_text_lines(platform_payload.get("discovery_keywords", [])),
+            "forums": _read_text_lines(platform_payload.get("forums", [])),
+            "recent_days": _safe_int(platform_payload.get("recent_days", 60), 60, minimum=1, maximum=3650),
+            "max_pages": _safe_int(platform_payload.get("max_pages", 10), 10, minimum=1, maximum=1000),
+            "note_time": _safe_int(platform_payload.get("note_time", 0), 0, minimum=0, maximum=4),
+            "require_images": _safe_bool(platform_payload.get("require_images"), True),
+            "label": source.get("platform_name") or platform_key,
+            "description": custom_platforms[platform_key]["description"],
+        }
+        save_platform_settings_store(store)
+    elif source.get("source_kind") == "custom":
+        source["source_kind"] = "application"
+
+    source["updated_at"] = now
+    items[source_index] = source
+    save_collection_sources_store(items)
+    return source
 
 
 def get_platform_runtime_overrides(platform):
@@ -593,6 +877,7 @@ def initialize_runtime():
         analyzer_cls = load_analyzer_class()
         _engine = analyzer_cls(base_dir=str(BASE_DIR), strict_init=STRICT_RUNTIME, load_word_vector_model=LOAD_WORD_VECTOR_MODEL)
         _runtime_ready = True
+        start_background_analysis_once()
         return _engine
 
 
@@ -602,6 +887,27 @@ def get_risk_engine():
         if _engine is None:
             return initialize_runtime()
         return _engine
+
+
+def start_background_analysis_once(limit_per_round=20):
+    global _startup_analysis_started
+    if not AUTO_ANALYZE_CRAWLED_ITEMS:
+        return
+    with _startup_analysis_lock:
+        if _startup_analysis_started:
+            return
+        _startup_analysis_started = True
+
+    def worker():
+        while True:
+            try:
+                processed, errors = analyze_unprocessed_documents(limit=limit_per_round)
+            except Exception:
+                break
+            if processed <= 0:
+                break
+
+    threading.Thread(target=worker, name="startup-analysis-worker", daemon=True).start()
 
 
 def allowed_file(filename: str) -> bool:
@@ -841,45 +1147,18 @@ def analyze_weibo_item(item):
     return item
 
 
-def analyze_unprocessed_documents(limit=20, log=None):
-    client, collection = get_collection()
-    processed = 0
-    errors = []
-    try:
-        query = {
-            "text": {"$type": "string", "$ne": ""},
-            "pics.0": {"$exists": True},
-            "$or": [{"analysis_status": {"$exists": False}}, {"analysis_status": {"$ne": "done"}}],
-        }
-        docs = list(collection.find(query).sort([("crawl_time", DESCENDING), ("_id", DESCENDING)]).limit(limit))
-        for doc in docs:
-            try:
-                item = dict(doc)
-                if log:
-                    log(f"开始多模态分析 {item.get('platform_name', item.get('platform', ''))} {item.get('id', '')}。")
-                with _engine_lock:
-                    analyze_weibo_item(item)
-                collection.update_one(
-                    {"_id": doc["_id"]},
-                    {
-                        "$set": {
-                            "analysis": item.get("analysis"),
-                            "analysis_status": item.get("analysis_status"),
-                            "analysis_error": item.get("analysis_error", ""),
-                            "analysis_image": item.get("analysis_image", ""),
-                            "analysis_at": item.get("analysis_at"),
-                        }
-                    },
-                )
-                processed += 1
-            except Exception as exc:
-                message = f"{doc.get('id', doc.get('_id'))}: {exc}"
-                errors.append(message)
-                if log:
-                    log(f"多模态分析失败: {message}")
-        return processed, errors
-    finally:
-        client.close()
+def analyze_doc_for_update(doc, log=None):
+    item = dict(doc)
+    if log:
+        log(f"开始多模态分析 {item.get('platform_name', item.get('platform', ''))} {item.get('id', '')}。")
+    analyze_weibo_item(item)
+    return {
+        "analysis": item.get("analysis"),
+        "analysis_status": item.get("analysis_status"),
+        "analysis_error": item.get("analysis_error", ""),
+        "analysis_image": item.get("analysis_image", ""),
+        "analysis_at": item.get("analysis_at"),
+    }
 
 
 def analyze_unprocessed_documents(limit=20, log=None):
@@ -890,39 +1169,70 @@ def analyze_unprocessed_documents(limit=20, log=None):
     query = {
         "text": {"$type": "string", "$ne": ""},
         "pics.0": {"$exists": True},
-        "$or": [{"analysis_status": {"$exists": False}}, {"analysis_status": {"$ne": "done"}}],
+        "$or": [{"analysis_status": {"$exists": False}}, {"analysis_status": {"$nin": ["done", "analyzing"]}}],
     }
-    for platform, collection in iter_platform_collections(platforms):
-        platform_query = {**query, "platform": platform}
-        docs = list(collection.find(platform_query).sort([("crawl_time", DESCENDING), ("_id", DESCENDING)]).limit(per_platform_limit))
-        for doc in docs:
-            if processed >= limit:
-                return processed, errors
-            try:
-                item = dict(doc)
-                if log:
-                    log(f"开始多模态分析 {item.get('platform_name', item.get('platform', ''))} {item.get('id', '')}。")
-                with _engine_lock:
-                    analyze_weibo_item(item)
-                collection.update_one(
-                    {"_id": doc["_id"]},
-                    {
-                        "$set": {
-                            "analysis": item.get("analysis"),
-                            "analysis_status": item.get("analysis_status"),
-                            "analysis_error": item.get("analysis_error", ""),
-                            "analysis_image": item.get("analysis_image", ""),
-                            "analysis_at": item.get("analysis_at"),
-                        }
-                    },
+    jobs = []
+    client = MongoClient(setting.MONGO_URI, serverSelectionTimeoutMS=3000)
+    try:
+        db = client[setting.MONGO_DATABASE]
+        for platform in platforms:
+            collection = db[platform_collection(platform)]
+            platform_query = {**query, "platform": platform}
+            docs = list(collection.find(platform_query).sort([("crawl_time", DESCENDING), ("_id", DESCENDING)]).limit(per_platform_limit))
+            for doc in docs:
+                if len(jobs) >= limit:
+                    break
+                claimed = collection.update_one(
+                    {**platform_query, "_id": doc["_id"]},
+                    {"$set": {"analysis_status": "analyzing", "analysis_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}},
                 )
-                processed += 1
-            except Exception as exc:
-                message = f"{doc.get('id', doc.get('_id'))}: {exc}"
-                errors.append(message)
-                if log:
-                    log(f"多模态分析失败: {message}")
-    return processed, errors
+                if not claimed.modified_count:
+                    continue
+                jobs.append((platform, collection, doc))
+            if len(jobs) >= limit:
+                break
+
+        if not jobs:
+            return processed, errors
+
+        worker_count = min(ANALYSIS_MAX_WORKERS, len(jobs))
+        if log and worker_count > 1:
+            log(f"并行启动 {worker_count} 个多模态分析任务，待处理 {len(jobs)} 条。")
+
+        def run_job(job):
+            platform, collection, doc = job
+            update = analyze_doc_for_update(doc, log=log)
+            return platform, collection, doc, update
+
+        with ThreadPoolExecutor(max_workers=worker_count, thread_name_prefix="analysis-worker") as executor:
+            future_map = {executor.submit(run_job, job): job for job in jobs}
+            for future in as_completed(future_map):
+                platform, collection, doc = future_map[future]
+                try:
+                    _platform, _collection, _doc, update = future.result()
+                    collection.update_one(
+                        {"_id": doc["_id"]},
+                        {"$set": update},
+                    )
+                    processed += 1
+                except Exception as exc:
+                    message = f"{doc.get('id', doc.get('_id'))}: {exc}"
+                    errors.append(message)
+                    collection.update_one(
+                        {"_id": doc["_id"]},
+                        {
+                            "$set": {
+                                "analysis_status": "error",
+                                "analysis_error": str(exc),
+                                "analysis_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                            }
+                        },
+                    )
+                    if log:
+                        log(f"多模态分析失败: {message}")
+        return processed, errors
+    finally:
+        client.close()
 
 
 def serialize_doc(doc):
@@ -1183,17 +1493,19 @@ class CrawlTask:
             while any(thread.is_alive() for thread in threads):
                 if self.controller and self.controller.stopped:
                     break
-                processed, errors = analyze_unprocessed_documents(limit=20, log=self.add_log)
-                if processed or errors:
-                    self.add_log(f"周期补分析完成，处理 {processed} 条，错误 {len(errors)} 条。")
+                if AUTO_ANALYZE_CRAWLED_ITEMS:
+                    processed, errors = analyze_unprocessed_documents(limit=20, log=self.add_log)
+                    if processed or errors:
+                        self.add_log(f"周期补分析完成，处理 {processed} 条，错误 {len(errors)} 条。")
                 for thread in threads:
                     thread.join(timeout=5)
 
             for thread in threads:
                 thread.join()
 
-            processed, errors = analyze_unprocessed_documents(limit=200, log=self.add_log)
-            self.add_log(f"收尾补分析完成，处理 {processed} 条，错误 {len(errors)} 条。")
+            if AUTO_ANALYZE_CRAWLED_ITEMS:
+                processed, errors = analyze_unprocessed_documents(limit=200, log=self.add_log)
+                self.add_log(f"收尾补分析完成，处理 {processed} 条，错误 {len(errors)} 条。")
             result = self.aggregate_platform_results()
             with self.lock:
                 self.last_result = result
@@ -1218,7 +1530,7 @@ class CrawlTask:
                 controller=self.controller,
                 log=lambda message, label=label: self.add_log(f"[{label}] {message}"),
                 progress=lambda stats, platform=platform: self.update_platform_stats(platform, stats),
-                item_callback=self._analyze_new_item,
+                item_callback=self._analyze_new_item if AUTO_ANALYZE_CRAWLED_ITEMS and ANALYSIS_MAX_WORKERS <= 1 else None,
                 mongo_uri=setting.MONGO_URI,
                 mongo_database=setting.MONGO_DATABASE,
                 mongo_collection=platform_collection(platform),
@@ -1234,8 +1546,7 @@ class CrawlTask:
 
     def _analyze_new_item(self, item):
         self.add_log(f"开始多模态分析 {item.get('platform_name', item.get('platform', '平台'))} {item.get('id', '')}。")
-        with _engine_lock:
-            analyze_weibo_item(item)
+        analyze_weibo_item(item)
         status = item.get("analysis_status")
         score = item.get("analysis", {}).get("summary", {}).get("total_score")
         if status == "done":
@@ -1289,6 +1600,11 @@ def report_page():
     return send_from_directory(FRONTEND_DIR, "report.html")
 
 
+@app.get("/platform-application")
+def platform_application_page():
+    return send_from_directory(FRONTEND_DIR, "platform_application.html")
+
+
 @app.get("/health")
 def health():
     try:
@@ -1299,6 +1615,10 @@ def health():
                 "status": "running",
                 "model_ready": _runtime_ready,
                 "engine": "MultimodalRiskFusion",
+                "engine_file": str(ENGINE_FILE),
+                "analysis_max_workers": ANALYSIS_MAX_WORKERS,
+                "auto_analyze_crawled_items": AUTO_ANALYZE_CRAWLED_ITEMS,
+                "runtime_config_file": str(RUNTIME_CONFIG_FILE),
                 "component_status": getattr(engine, "component_status", {}),
                 "init_errors": getattr(engine, "init_errors", []),
             }
@@ -1367,6 +1687,33 @@ def save_platform_settings():
     payload = request.get_json(silent=True) or {}
     saved = persist_platform_settings(payload)
     return jsonify({"ok": True, **saved})
+
+
+@app.post("/api/platform-settings/applications/<source_id>/review")
+def review_platform_application(source_id):
+    blocked = require_admin()
+    if blocked:
+        return blocked
+    payload = request.get_json(silent=True) or {}
+    try:
+        item = update_source_application_review(source_id, payload)
+        settings = build_platform_settings_payload()
+        return jsonify({"ok": True, "item": item, **settings})
+    except KeyError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 404
+    except ValueError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+
+
+@app.get("/api/platform-settings/applications/<source_id>")
+def get_platform_application(source_id):
+    blocked = require_admin()
+    if blocked:
+        return blocked
+    for item in collection_source_applications():
+        if item.get("id") == source_id:
+            return jsonify({"ok": True, "item": item})
+    return jsonify({"ok": False, "error": "采集源申请不存在。"}), 404
 
 
 @app.get("/api/session")
@@ -1509,11 +1856,26 @@ def update_collection_source(source_id):
     for index, item in enumerate(items):
         if item.get("id") != source_id:
             continue
-        if request_role() != "admin" and item.get("owner") != request_user():
-            return jsonify({"ok": False, "error": "普通用户只能修改自己添加的采集源。"}), 403
+        if request_role() != "admin":
+            if item.get("source_kind") == "platform":
+                application = sanitize_collection_source(payload)
+                if not application["platform_name"]:
+                    application["platform_name"] = item.get("platform_name", "")
+                if not application["target_url"]:
+                    application["target_url"] = item.get("target_url", "")
+                items.insert(0, application)
+                save_collection_sources_store(items)
+                return jsonify({"ok": True, "item": application, "items": visible_collection_sources()})
+            if item.get("owner") != request_user():
+                return jsonify({"ok": False, "error": "普通用户只能修改自己提交的采集申请。"}), 403
+            if item.get("status") in {"已配置", "已通过"}:
+                return jsonify({"ok": False, "error": "已通过的采集源不能由普通用户直接修改，请重新提交申请。"}), 403
+        elif item.get("source_kind") != "platform" and str(payload.get("status") or "").strip() in {"已通过", "已退回"}:
+            reviewed = update_source_application_review(source_id, payload)
+            return jsonify({"ok": True, "item": reviewed, "items": visible_collection_sources()})
         next_item = sanitize_collection_source(payload, existing=item)
         if request_role() == "admin" and "status" in payload:
-            next_item["status"] = str(payload.get("status") or item.get("status") or "待采集")
+            next_item["status"] = str(payload.get("status") or item.get("status") or "待审核")
         items[index] = next_item
         save_collection_sources_store(items)
         return jsonify({"ok": True, "item": next_item, "items": visible_collection_sources()})
@@ -1526,8 +1888,10 @@ def delete_collection_source(source_id):
     for item in items:
         if item.get("id") != source_id:
             continue
-        if request_role() != "admin" and item.get("owner") != request_user():
-            return jsonify({"ok": False, "error": "普通用户只能删除自己添加的采集源。"}), 403
+        if request_role() != "admin":
+            return jsonify({"ok": False, "error": "普通用户没有删减采集源列表的权限。"}), 403
+        if item.get("source_kind") == "platform":
+            return jsonify({"ok": False, "error": "系统内置平台源需要与任务控制栏保持一致，不能删除。"}), 400
         next_items = [entry for entry in items if entry.get("id") != source_id]
         save_collection_sources_store(next_items)
         return jsonify({"ok": True, "items": visible_collection_sources()})

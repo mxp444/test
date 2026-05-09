@@ -34,15 +34,41 @@ const crossLabels = {
 };
 
 const objectLabels = {
+  full_text: "完整 OCR 文本",
+  key_texts: "关键文字",
+  items: "文字位置项",
+  category_score: "类别得分",
+  term_count: "命中次数",
+  matched_terms: "命中词",
+  category_counts: "类别计数",
+  positive_category_count: "命中类别数",
+  total_risk_word_count: "总风险词数",
   qr_detected: "是否检测到二维码",
+  success: "是否成功",
   qr_data: "二维码内容",
+  qr_bbox: "二维码位置",
+  blur_score: "模糊度分数",
   blur_raw: "原始模糊度",
   clarity_score: "清晰度",
   color_score: "色彩丰富度",
+  color_richness: "色彩丰富度详情",
   design_score: "设计感",
+  design_std: "设计感波动",
+  design_sense: "设计感详情",
+  nima_mean: "NIMA 均值",
+  nima_std: "NIMA 标准差",
   sentiment: "情感标签",
+  label: "标签",
+  label_id: "标签 ID",
   risk_level: "风险等级",
   confidence: "置信度",
+  total_score: "总分",
+  tone_score: "语气强度",
+  scarcity_score: "稀缺紧迫",
+  herd_score: "从众诱导",
+  risk_description: "风险描述",
+  recommendation: "建议",
+  dimensions: "维度明细",
   status: "状态",
   message: "说明",
 };
@@ -150,8 +176,10 @@ function renderTextAnalysis(result, isOcr = false) {
     ${section("综合评分", renderFeatureList(result.scores || {}, scoreLabels))}
     ${section("金融属性 Top4", renderFinanceTopk(result.finance_topk || []))}
     ${section("风险要素评分", renderBars(result.risk_factor_scores || {}, {}))}
+    ${section("风险要素统计", renderNestedObject(result.risk_factor_summary || {}))}
+    ${section("风险要素命中详情", renderRiskDetails(result.risk_factor_details || {}))}
     ${section("情感分析", renderObjectSummary(result.sentiment || {}))}
-    ${section("煽动性评估", renderObjectSummary(result.incitement || {}))}
+    ${section("煽动性评估", renderIncitement(result.incitement || {}))}
     ${section("风险证据", renderList(result.evidence || []))}
   `;
 }
@@ -159,8 +187,9 @@ function renderTextAnalysis(result, isOcr = false) {
 function renderImageAnalysis(result) {
   return `
     ${section("OCR 识别文字", `<p class="text-box">${escapeHtml(result.ocr_text || "无")}</p>`)}
+    ${section("OCR 关键文字与位置", renderOcrResult(result.ocr_result || result.ocr_result_json || {}))}
     ${section("图片综合评分", renderFeatureList(result.scores || {}, scoreLabels))}
-    ${section("视觉指标", renderObjectSummary(result.visual_metrics || {}))}
+    ${section("视觉指标", renderVisualMetrics(result.visual_metrics || {}))}
     ${section("二维码检测", renderObjectSummary(result.qr_result || {}))}
     ${section("视觉标签", renderList(result.visual_tags || []))}
     ${section("图片证据", renderList(result.evidence || []))}
@@ -187,7 +216,70 @@ function renderFinanceTopk(items) {
 }
 
 function renderObjectSummary(value) {
-  return renderFeatureList(Object.fromEntries(Object.entries(value || {}).filter(([key]) => key !== "raw")), objectLabels);
+  return renderNestedObject(Object.fromEntries(Object.entries(value || {}).filter(([key]) => key !== "raw")));
+}
+
+function renderRiskDetails(details) {
+  const entries = Object.entries(details || {});
+  if (!entries.length) return "<p class=\"text-box\">暂无风险要素命中详情。</p>";
+  return entries.map(([key, value]) => {
+    const terms = Array.isArray(value?.matched_terms) ? value.matched_terms : [];
+    return `
+      <div class="nested-card">
+        <div class="feature-row"><span>${escapeHtml(value?.category_label || key)}</span><strong>${formatScore(value?.category_score)}</strong></div>
+        <div class="feature-row"><span>命中次数</span><strong>${escapeHtml(value?.term_count ?? 0)}</strong></div>
+        ${terms.length ? `<ul class="mini-list">${terms.map((term) => `<li><strong>${escapeHtml(term.term || "")}</strong> × ${escapeHtml(term.count ?? 1)} · ${escapeHtml(term.evidence || term.source || "")}</li>`).join("")}</ul>` : "<p class=\"text-box\">未命中</p>"}
+      </div>
+    `;
+  }).join("");
+}
+
+function renderIncitement(value) {
+  if (!value || !Object.keys(value).length) return "<p class=\"text-box\">暂无煽动性评估。</p>";
+  const dimensions = value.dimensions || {};
+  const base = Object.fromEntries(Object.entries(value).filter(([key]) => !["dimensions", "raw"].includes(key)));
+  return `
+    ${renderNestedObject(base)}
+    <div class="nested-grid">
+      ${Object.entries(dimensions).map(([key, item]) => `
+        <div class="nested-card">
+          <h5>${escapeHtml(labelFor(key, { tone: "语气强度", scarcity: "稀缺紧迫", herd: "从众诱导" }))}</h5>
+          ${renderNestedObject(item)}
+        </div>
+      `).join("") || "<p class=\"text-box\">暂无维度明细。</p>"}
+    </div>
+  `;
+}
+
+function renderOcrResult(value) {
+  const fullText = value.full_text || "";
+  const keyTexts = Array.isArray(value.key_texts) ? value.key_texts : [];
+  const items = Array.isArray(value.items) ? value.items : [];
+  return `
+    ${fullText ? `<p class="text-box">${escapeHtml(fullText)}</p>` : ""}
+    ${keyTexts.length ? `<div class="chip-list">${keyTexts.map((text) => `<span>${escapeHtml(text)}</span>`).join("")}</div>` : ""}
+    ${items.length ? `<div class="table-wrap"><table><thead><tr><th>文字</th><th>位置</th><th>置信度</th></tr></thead><tbody>${items.map((item) => `<tr><td>${escapeHtml(item.text || "")}</td><td>${escapeHtml(item.position_description || formatValue(item.bbox || ""))}</td><td>${formatScore(item.confidence)}</td></tr>`).join("")}</tbody></table></div>` : "<p class=\"text-box\">暂无 OCR 位置明细。</p>"}
+  `;
+}
+
+function renderVisualMetrics(value) {
+  if (!value || !Object.keys(value).length) return "<p class=\"text-box\">暂无视觉指标。</p>";
+  return `
+    ${renderNestedObject(Object.fromEntries(Object.entries(value).filter(([key]) => !["color_richness", "design_sense"].includes(key))))}
+    ${value.color_richness ? `<div class="nested-card"><h5>色彩丰富度</h5>${renderNestedObject(value.color_richness)}</div>` : ""}
+    ${value.design_sense ? `<div class="nested-card"><h5>设计感</h5>${renderNestedObject(value.design_sense)}</div>` : ""}
+  `;
+}
+
+function renderNestedObject(value) {
+  const entries = Object.entries(value || {});
+  if (!entries.length) return "<p class=\"text-box\">暂无结果。</p>";
+  return entries.map(([key, item]) => {
+    if (item && typeof item === "object" && !Array.isArray(item)) {
+      return `<div class="nested-card"><h5>${escapeHtml(labelFor(key, objectLabels))}</h5>${renderNestedObject(item)}</div>`;
+    }
+    return `<div class="feature-row"><span>${escapeHtml(labelFor(key, objectLabels))}</span><strong>${escapeHtml(formatValue(item))}</strong></div>`;
+  }).join("");
 }
 
 function renderList(items) {
