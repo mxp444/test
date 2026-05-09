@@ -13,15 +13,21 @@ const state = {
   status: {},
   health: null,
   platformSettings: { platforms: {}, options: [], known_platforms: [], source_applications: [] },
+  crawlRules: { categories: [] },
+  systemSettings: { runtime: {}, engine_options: [], paths: {}, database: {}, platforms: [] },
+  accounts: [],
+  userManagement: { users: [], role_permissions: {}, departments: {}, roles: {}, activities: [] },
+  expandedCrawlRules: {},
   feedFilter: "all",
   activeView: "home",
   settingsDirty: false,
   activeSettingsPlatformId: "",
   monitorLimit: localStorage.getItem("monitorLimit") || "20",
   riskAnalysisFilter: "medium-high",
+  expandedAccount: "",
 };
 
-const views = ["home", "collection", "monitor", "tracking", "risk", "profile", "admin-platforms", "admin-tasks", "admin-rules", "admin-models", "admin-logs", "admin-users", "admin-settings"];
+const views = ["home", "collection", "monitor", "tracking", "risk", "profile", "admin-platforms", "admin-tasks", "admin-models", "admin-logs", "admin-users", "admin-user-management", "admin-settings"];
 const adminViews = new Set(views.filter((view) => view.startsWith("admin-")));
 const riskTypes = ["虚假宣传风险", "非法集资风险", "金融诈骗风险", "负面舆情风险", "投诉维权风险", "恶意营销风险", "其他风险"];
 const sentimentTypes = ["负面", "中性", "正面"];
@@ -69,6 +75,8 @@ function bindEvents() {
   $("#toggleBtn")?.addEventListener("click", toggleCrawl);
   $("#analyzeOldBtn")?.addEventListener("click", analyzeOldItems);
   $("#saveSettingsBtn")?.addEventListener("click", savePlatformSettings);
+  $("#saveSystemSettingsBtn")?.addEventListener("click", saveSystemSettings);
+  $("#resetEngineBtn")?.addEventListener("click", resetAnalysisEngine);
   $("#sourceForm")?.addEventListener("submit", saveCollectionSource);
   $("#resetSourceBtn")?.addEventListener("click", resetSourceForm);
   $("#profileForm")?.addEventListener("submit", saveProfile);
@@ -140,6 +148,27 @@ function bindEvents() {
     state.activeSettingsPlatformId = event.target.value;
     renderPlatformSettingsCards();
   });
+
+  $("#ruleCards")?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-rule-toggle]");
+    if (!button) return;
+    const index = button.dataset.ruleToggle;
+    state.expandedCrawlRules[index] = !state.expandedCrawlRules[index];
+    renderCrawlRules();
+  });
+
+  $("#accountTable")?.addEventListener("click", (event) => {
+    const edit = event.target.closest("[data-account-edit]");
+    const cancel = event.target.closest("[data-account-cancel]");
+    const save = event.target.closest("[data-account-save]");
+    const toggle = event.target.closest("[data-account-toggle]");
+    const reset = event.target.closest("[data-account-reset]");
+    if (edit) toggleAccountDetails(edit.dataset.accountEdit);
+    if (cancel) closeAccountDetails(cancel.dataset.accountCancel);
+    if (save) saveInlineAccount(save.dataset.accountSave);
+    if (toggle) toggleAccount(toggle.dataset.accountToggle);
+    if (reset) resetAccountPassword(reset.dataset.accountReset);
+  });
 }
 
 function headers() {
@@ -155,7 +184,7 @@ async function fetchJson(url, options = {}) {
 
 async function refreshAll() {
   if (!state.loggedIn) return;
-  await Promise.allSettled([loadHealth(), loadStatus(), loadItems(), loadWatchlist(), loadCollectionSources(), loadPlatformSettings()]);
+  await Promise.allSettled([loadHealth(), loadStatus(), loadItems(), loadWatchlist(), loadCollectionSources(), loadPlatformSettings(), loadCrawlRules(), loadSystemSettings(), loadAccounts(), loadUserManagement()]);
   renderAll();
 }
 
@@ -215,6 +244,43 @@ async function loadPlatformSettings() {
   }
 }
 
+async function loadCrawlRules() {
+  if (state.role !== "admin") return;
+  try {
+    state.crawlRules = await fetchJson("/api/admin/crawl-rules");
+  } catch {
+    state.crawlRules = { categories: [] };
+  }
+}
+
+async function loadSystemSettings() {
+  if (state.role !== "admin") return;
+  try {
+    state.systemSettings = await fetchJson("/api/admin/system-settings");
+  } catch {
+    state.systemSettings = { runtime: {}, engine_options: [], paths: {}, database: {}, platforms: [] };
+  }
+}
+
+async function loadAccounts() {
+  if (state.role !== "admin") return;
+  try {
+    const data = await fetchJson("/api/admin/accounts");
+    state.accounts = data.items || [];
+  } catch {
+    state.accounts = [];
+  }
+}
+
+async function loadUserManagement() {
+  if (state.role !== "admin") return;
+  try {
+    state.userManagement = await fetchJson("/api/admin/user-management");
+  } catch {
+    state.userManagement = { users: [], role_permissions: {}, departments: {}, roles: {}, activities: [] };
+  }
+}
+
 function renderAll() {
   renderHealth();
   renderTaskControl();
@@ -227,6 +293,10 @@ function renderAll() {
   renderProfile();
   renderAdminStatus();
   renderAdminSettings();
+  renderCrawlRules();
+  renderSystemSettings();
+  renderAccounts();
+  renderUserManagement();
 }
 
 function applyRole() {
@@ -507,6 +577,148 @@ async function savePassword(event) {
     message.textContent = error.message;
     message.className = "form-message error";
   }
+}
+
+function renderAccounts() {
+  if (state.role !== "admin" || !$("#accountTable")) return;
+  $("#accountMeta").textContent = `共 ${state.accounts.length} 个账号`;
+  $("#accountTable").innerHTML = state.accounts.length ? `
+    <table><thead><tr><th>用户名</th><th>显示名称</th><th>角色</th><th>状态</th><th>部门</th><th>联系电话</th><th>操作</th></tr></thead><tbody>
+      ${state.accounts.map((account) => `<tr>
+        <td>${escapeHtml(account.username)}</td>
+        <td>${escapeHtml(account.display_name || "")}</td>
+        <td>${account.role === "admin" ? "管理员" : "普通用户"}</td>
+        <td><span class="mini-badge ${account.enabled ? "ok" : "pending"}">${account.enabled ? "启用" : "禁用"}</span></td>
+        <td>${escapeHtml(account.department || "")}</td>
+        <td>${escapeHtml(account.phone || "")}</td>
+        <td>
+          <button type="button" data-account-edit="${escapeHtml(account.username)}">编辑</button>
+          <button type="button" data-account-toggle="${escapeHtml(account.username)}">${account.enabled ? "禁用" : "启用"}</button>
+          <button type="button" class="danger-inline" data-account-reset="${escapeHtml(account.username)}">重置密码</button>
+        </td>
+      </tr>${state.expandedAccount === account.username ? renderAccountDetailRow(account) : ""}`).join("")}
+    </tbody></table>` : emptyTable("暂无账号。");
+}
+
+function renderAccountDetailRow(account) {
+  return `<tr class="account-detail-row"><td colspan="7">
+    <div class="inline-account-editor">
+      <label>用户名<input data-account-field="username" value="${escapeHtml(account.username)}"></label>
+      <label>显示名称<input data-account-field="display_name" value="${escapeHtml(account.display_name || "")}"></label>
+      <label>联系电话<input data-account-field="phone" value="${escapeHtml(account.phone || "")}"></label>
+      <label>所属部门<input data-account-field="department" value="${escapeHtml(account.department || "")}"></label>
+      <label>账号角色<select data-account-field="role"><option value="user" ${account.role === "admin" ? "" : "selected"}>普通用户</option><option value="admin" ${account.role === "admin" ? "selected" : ""}>管理员</option></select></label>
+      <label>账号状态<select data-account-field="enabled"><option value="true" ${account.enabled ? "selected" : ""}>启用</option><option value="false" ${account.enabled ? "" : "selected"}>禁用</option></select></label>
+      <div class="form-actions full">
+        <button class="primary" type="button" data-account-save="${escapeHtml(account.username)}">保存修改</button>
+        <button type="button" data-account-cancel="${escapeHtml(account.username)}">收起</button>
+      </div>
+    </div>
+  </td></tr>`;
+}
+
+function toggleAccountDetails(username) {
+  state.expandedAccount = state.expandedAccount === username ? "" : username;
+  renderAccounts();
+}
+
+function closeAccountDetails(username) {
+  if (state.expandedAccount === username) state.expandedAccount = "";
+  renderAccounts();
+}
+
+async function saveInlineAccount(original) {
+  const row = document.querySelector(`[data-account-save="${CSS.escape(original)}"]`)?.closest(".account-detail-row");
+  if (!row) return;
+  const payload = {
+    username: row.querySelector('[data-account-field="username"]').value,
+    display_name: row.querySelector('[data-account-field="display_name"]').value,
+    phone: row.querySelector('[data-account-field="phone"]').value,
+    department: row.querySelector('[data-account-field="department"]').value,
+    role: row.querySelector('[data-account-field="role"]').value,
+    enabled: row.querySelector('[data-account-field="enabled"]').value === "true",
+  };
+  try {
+    const data = await fetchJson(`/api/admin/accounts/${encodeURIComponent(original)}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
+    state.accounts = data.items || [];
+    state.expandedAccount = payload.username;
+    renderAccounts();
+  } catch (error) {
+    window.alert(error.message);
+  }
+}
+
+async function toggleAccount(username) {
+  const account = state.accounts.find((item) => item.username === username);
+  if (!account) return;
+  try {
+    const data = await fetchJson(`/api/admin/accounts/${encodeURIComponent(username)}`, {
+      method: "PUT",
+      body: JSON.stringify({ ...account, enabled: !account.enabled }),
+    });
+    state.accounts = data.items || [];
+    renderAccounts();
+  } catch (error) {
+    window.alert(error.message);
+  }
+}
+
+async function resetAccountPassword(username) {
+  const password = window.prompt(`请输入 ${username} 的新密码（至少 6 位）`);
+  if (!password) return;
+  try {
+    await fetchJson(`/api/admin/accounts/${encodeURIComponent(username)}/reset-password`, {
+      method: "POST",
+      body: JSON.stringify({ password }),
+    });
+    window.alert("密码已重置。");
+  } catch (error) {
+    window.alert(error.message);
+  }
+}
+
+function renderUserManagement() {
+  if (state.role !== "admin" || !$("#rolePermissionCards")) return;
+  const data = state.userManagement || {};
+  const presets = data.role_permissions || {};
+  $("#rolePermissionCards").innerHTML = Object.entries(presets).map(([role, config]) => `
+    <article class="admin-card">
+      <h3>${escapeHtml(config.label || role)}</h3>
+      <p>${escapeHtml(config.scope || "")}</p>
+      <div class="chip-list">${(config.permissions || []).map((item) => `<span>${escapeHtml(item)}</span>`).join("")}</div>
+      ${(config.denied || []).length ? `<p class="field-hint">禁止：${escapeHtml((config.denied || []).join("、"))}</p>` : ""}
+    </article>
+  `).join("") || emptyCard("暂无角色权限配置。");
+
+  const users = data.users || [];
+  $("#userGroupMeta").textContent = `共 ${users.length} 个用户`;
+  $("#userGroupChart").innerHTML = renderBars(data.departments || {}, users.length || 1);
+  $("#userScopeTable").innerHTML = users.length ? `
+    <table><thead><tr><th>用户</th><th>角色</th><th>部门</th><th>状态</th><th>操作范围</th></tr></thead><tbody>
+      ${users.map((user) => `<tr>
+        <td>${escapeHtml(user.display_name || user.username)}<br><span class="field-hint">${escapeHtml(user.username)}</span></td>
+        <td>${user.role === "admin" ? "管理员" : "普通用户"}</td>
+        <td>${escapeHtml(user.department || "未分组")}</td>
+        <td>${user.enabled ? "可登录" : "已禁用"}</td>
+        <td>${escapeHtml((presets[user.role] || {}).scope || "")}</td>
+      </tr>`).join("")}
+    </tbody></table>` : emptyTable("暂无用户。");
+
+  const activities = data.activities || [];
+  $("#userActivityMeta").textContent = `最近 ${activities.length} 条`;
+  $("#userActivityTable").innerHTML = activities.length ? `
+    <table><thead><tr><th>时间</th><th>用户</th><th>角色</th><th>操作</th><th>说明</th></tr></thead><tbody>
+      ${activities.map((item) => `<tr>
+        <td>${escapeHtml(item.time || "")}</td>
+        <td>${escapeHtml(item.username || "")}</td>
+        <td>${item.role === "admin" ? "管理员" : "普通用户"}</td>
+        <td>${escapeHtml(item.action || "")}</td>
+        <td>${escapeHtml(item.detail || "")}</td>
+      </tr>`).join("")}
+    </tbody></table>` : emptyTable("暂无操作记录。");
 }
 
 function advancedFilteredItems(sourceItems = state.items) {
@@ -826,10 +1038,153 @@ function readLines(id, field) {
   return String(readSetting(id, field, "text", "") || "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
 }
 
+function renderCrawlRules() {
+  const box = $("#ruleCards");
+  if (!box || state.role !== "admin") return;
+  const categories = state.crawlRules?.categories || [];
+  box.innerHTML = categories.length
+    ? categories.map((category, index) => {
+      const expanded = Boolean(state.expandedCrawlRules[index]);
+      const itemCount = (category.items || []).length;
+      return `
+      <article class="admin-card crawl-rule-card ${expanded ? "is-expanded" : ""}">
+        <div class="rule-card-head">
+          <div>
+            <h3>${escapeHtml(category.title)}</h3>
+            <p>${itemCount} 个平台规则，默认隐藏详细内容</p>
+          </div>
+          <button class="rule-toggle-btn" type="button" data-rule-toggle="${index}">${expanded ? "收起" : "展开"}</button>
+        </div>
+        <div class="rule-platform-list ${expanded ? "" : "is-hidden"}">
+          ${(category.items || []).map((item) => `
+            <div class="rule-platform-item">
+              <div class="rule-platform-head">
+                <strong>${escapeHtml(item.label || item.platform || "平台")}</strong>
+                <span>${escapeHtml(item.platform || "")}</span>
+              </div>
+              <ul class="rule-list">
+                ${(item.rules || []).map((rule) => `<li>${escapeHtml(rule)}</li>`).join("")}
+              </ul>
+              ${(item.samples || []).length ? `<div class="chip-list rule-samples">${item.samples.map((sample) => `<span>${escapeHtml(sample)}</span>`).join("")}</div>` : ""}
+            </div>
+          `).join("")}
+        </div>
+      </article>
+    `;
+    }).join("")
+    : emptyCard("暂无采集规则配置。");
+}
+
+function renderSystemSettings() {
+  if (state.role !== "admin" || !$("#systemSettings")) return;
+  const settings = state.systemSettings || {};
+  const runtime = settings.runtime || {};
+  const engineOptions = settings.engine_options || [];
+  const cookies = runtime.platform_cookies || {};
+  const platforms = settings.platforms || [];
+  $("#systemSettingsMeta").textContent = runtime.analysis_engine_file ? "已读取 runtime_config.json" : "未加载";
+  $("#systemSettings").innerHTML = `
+    <article class="admin-card system-setting-card">
+      <h3>分析引擎</h3>
+      <div class="system-form-grid">
+        <label>分析实现文件
+          <select id="sysEngineFile">
+            ${engineOptions.map((name) => `<option value="${escapeHtml(name)}" ${name === runtime.analysis_engine_file ? "selected" : ""}>${escapeHtml(name)}</option>`).join("")}
+          </select>
+        </label>
+        <label>分析并发数
+          <input id="sysAnalysisWorkers" type="number" min="1" max="64" value="${escapeHtml(runtime.analysis_max_workers || 1)}">
+        </label>
+        <label>单轮采集目标量
+          <input id="sysCrawlTarget" type="number" min="1" max="10000" value="${escapeHtml(runtime.crawl_total_target || 200)}">
+        </label>
+      </div>
+      <div class="setting-toggle-list">
+        ${renderSettingToggle("sysAutoAnalyze", "自动分析新数据", "爬虫写入 MongoDB 后自动调用多模态分析。", runtime.auto_analyze_crawled_items)}
+        ${renderSettingToggle("sysLoadWordVector", "加载词向量模型", "测试时可关闭，减少模型初始化等待时间。", runtime.load_word_vector_model)}
+        ${renderSettingToggle("sysStrictRuntime", "严格启动检查", "开启后 MongoDB 或模型依赖异常会阻止后端继续运行。", runtime.strict_runtime)}
+      </div>
+    </article>
+    <article class="admin-card system-setting-card">
+      <h3>平台 Cookie 覆盖</h3>
+      <p>这里保存到 runtime_config.json，会覆盖平台配置里的 Cookie，适合统一切换测试账号。</p>
+      <div class="cookie-setting-list">
+        ${platforms.map((platform) => `
+          <label>${escapeHtml(platform.label || platform.id)}
+            <textarea data-system-cookie="${escapeHtml(platform.id)}" placeholder="未填写则使用平台配置">${escapeHtml(cookies[platform.id] || "")}</textarea>
+          </label>
+        `).join("")}
+      </div>
+    </article>
+  `;
+  renderSystemMaintenance();
+}
+
+function renderSettingToggle(id, title, detail, checked) {
+  return `<label class="setting-toggle">
+    <input id="${id}" type="checkbox" ${checked ? "checked" : ""}>
+    <span><strong>${escapeHtml(title)}</strong><em>${escapeHtml(detail)}</em></span>
+  </label>`;
+}
+
+function renderSystemMaintenance() {
+  if (state.role !== "admin" || !$("#systemMaintenance")) return;
+  const settings = state.systemSettings || {};
+  const runtime = settings.runtime || {};
+  const paths = settings.paths || {};
+  const database = settings.database || {};
+  const collections = database.collections || {};
+  $("#systemMaintenance").innerHTML = `
+    <div class="system-status-grid">
+      <article><span>当前分析文件</span><strong>${escapeHtml(runtime.analysis_engine_path || runtime.analysis_engine_file || "未加载")}</strong></article>
+      <article><span>运行配置文件</span><strong>${escapeHtml(paths.runtime_config_file || "")}</strong></article>
+      <article><span>MongoDB</span><strong>${escapeHtml(database.mongo_uri || "未配置")}</strong></article>
+      <article><span>前端目录</span><strong>${escapeHtml(paths.frontend_dir || "")}</strong></article>
+      <article><span>爬虫目录</span><strong>${escapeHtml(paths.crawler_dir || "")}</strong></article>
+      <article><span>平台集合</span><strong>${escapeHtml(Object.entries(collections).map(([platform, name]) => `${platform}:${name}`).join(" / "))}</strong></article>
+    </div>
+  `;
+}
+
+async function saveSystemSettings() {
+  const payload = {
+    analysis_engine_file: $("#sysEngineFile")?.value || "",
+    analysis_max_workers: Number($("#sysAnalysisWorkers")?.value || 1),
+    crawl_total_target: Number($("#sysCrawlTarget")?.value || 200),
+    auto_analyze_crawled_items: Boolean($("#sysAutoAnalyze")?.checked),
+    load_word_vector_model: Boolean($("#sysLoadWordVector")?.checked),
+    strict_runtime: Boolean($("#sysStrictRuntime")?.checked),
+    platform_cookies: {},
+  };
+  $$("[data-system-cookie]").forEach((textarea) => {
+    payload.platform_cookies[textarea.dataset.systemCookie] = textarea.value;
+  });
+  try {
+    const data = await fetchJson("/api/admin/system-settings", {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
+    state.systemSettings = { ...state.systemSettings, ...data };
+    window.alert("系统设置已保存。");
+    await refreshAll();
+  } catch (error) {
+    window.alert(error.message);
+  }
+}
+
+async function resetAnalysisEngine() {
+  if (!window.confirm("确定要重置分析引擎吗？下次分析会按当前配置重新加载模型。")) return;
+  try {
+    const data = await fetchJson("/api/admin/system-settings/reset-engine", { method: "POST", body: "{}" });
+    state.systemSettings = { ...state.systemSettings, ...data };
+    window.alert("分析引擎已重置。");
+    await refreshAll();
+  } catch (error) {
+    window.alert(error.message);
+  }
+}
+
 function renderStaticAdminPages() {
-  $("#ruleCards").innerHTML = ["平台适配规则", "关键词规则", "抓取字段", "反爬策略参数", "采集频率", "数据清洗规则"].map((title) => `<article class="admin-card"><h3>${title}</h3><p>该项由管理员在后台维护，普通用户前台不可见。</p></article>`).join("");
-  $("#permissionMatrix").innerHTML = `<table><thead><tr><th>角色</th><th>前台业务功能</th><th>后台管理功能</th><th>采集源权限</th></tr></thead><tbody><tr><td>普通用户</td><td>首页、数据采集、舆情监测、风险分析</td><td>无权限</td><td>只能查看平台源并提交采集申请，不能删减采集源列表</td></tr><tr><td>管理员</td><td>全部前台功能</td><td>平台、任务、规则、模型、日志、用户、系统设置</td><td>可直接配置采集源，并审核、退回或删除申请源</td></tr></tbody></table>`;
-  $("#systemSettings").innerHTML = ["基础参数配置", "系统字典配置", "风险等级规则", "预警阈值配置", "数据存储配置"].map((title) => `<article class="admin-card"><h3>${title}</h3><p>用于系统维护和验收演示，入口仅管理员可见。</p></article>`).join("");
 }
 
 function filteredItems() {

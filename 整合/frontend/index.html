@@ -87,10 +87,10 @@
         <div class="nav-group-title admin-only">后台管理端</div>
         <a class="nav-link admin-only" href="#admin-platforms" data-view="admin-platforms" data-role="admin">平台管理</a>
         <a class="nav-link admin-only" href="#admin-tasks" data-view="admin-tasks" data-role="admin">采集任务管理</a>
-        <a class="nav-link admin-only" href="#admin-rules" data-view="admin-rules" data-role="admin">采集规则配置</a>
         <a class="nav-link admin-only" href="#admin-models" data-view="admin-models" data-role="admin">模型管理</a>
         <a class="nav-link admin-only" href="#admin-logs" data-view="admin-logs" data-role="admin">运行日志</a>
-        <a class="nav-link admin-only" href="#admin-users" data-view="admin-users" data-role="admin">用户权限管理</a>
+        <a class="nav-link admin-only" href="#admin-users" data-view="admin-users" data-role="admin">账号管理</a>
+        <a class="nav-link admin-only" href="#admin-user-management" data-view="admin-user-management" data-role="admin">用户管理</a>
         <a class="nav-link admin-only" href="#admin-settings" data-view="admin-settings" data-role="admin">系统设置</a>
       </section>
 
@@ -102,23 +102,6 @@
         <p class="sidebar-note">本系统面向监管部门、内部业务人员和管理员。普通用户处理舆情业务，管理员负责平台、规则、模型、日志和权限维护。</p>
       </section>
 
-      <section class="sidebar-card admin-only">
-        <div class="sidebar-head">
-          <h2>任务控制</h2>
-          <span>Admin</span>
-        </div>
-        <div id="platformSelector" class="platform-select" aria-label="选择采集平台"></div>
-        <div class="actions">
-          <button id="toggleBtn" class="primary">启动采集</button>
-          <button id="refreshBtn">刷新</button>
-          <button id="analyzeOldBtn">补分析历史数据</button>
-        </div>
-        <div class="run-state">
-          <span id="runState" class="badge idle">未启动</span>
-          <p id="lastResult">暂无结果</p>
-          <p id="lastError" class="error-text"></p>
-        </div>
-      </section>
     </aside>
 
     <section class="content-column">
@@ -299,11 +282,22 @@
       </section>
 
       <section id="admin-tasksView" class="view-panel admin-view">
-        <section class="feed-panel"><div class="feed-head"><div><p class="feed-eyebrow">采集任务管理</p><h2>任务状态与执行结果</h2></div><span id="taskMeta">未加载</span></div><div id="taskSummaryList" class="component-status-list"></div></section>
-      </section>
-
-      <section id="admin-rulesView" class="view-panel admin-view">
-        <section class="feed-panel"><div class="feed-head"><div><p class="feed-eyebrow">采集规则配置</p><h2>平台适配与爬虫策略</h2></div></div><div id="ruleCards" class="admin-card-grid"></div></section>
+        <section class="feed-panel">
+          <div class="feed-head"><div><p class="feed-eyebrow">采集任务管理</p><h2>任务控制台</h2></div><span id="taskMeta">未加载</span></div>
+          <div id="platformSelector" class="platform-select" aria-label="选择采集平台"></div>
+          <div class="actions task-actions">
+            <button id="toggleBtn" class="primary">启动采集</button>
+            <button id="refreshBtn">刷新</button>
+            <button id="analyzeOldBtn">补分析历史数据</button>
+          </div>
+          <div class="run-state task-run-state">
+            <span id="runState" class="badge idle">未启动</span>
+            <p id="lastResult">暂无结果</p>
+            <p id="lastError" class="error-text"></p>
+          </div>
+        </section>
+        <section class="feed-panel"><div class="feed-head"><div><p class="feed-eyebrow">采集规则配置</p><h2>平台适配与爬虫策略</h2></div></div><div id="ruleCards" class="crawl-rule-stack"></div></section>
+        <section class="feed-panel"><div class="feed-head"><div><p class="feed-eyebrow">执行结果</p><h2>任务状态与统计</h2></div></div><div id="taskSummaryList" class="component-status-list"></div></section>
       </section>
 
       <section id="admin-modelsView" class="view-panel admin-view">
@@ -315,11 +309,39 @@
       </section>
 
       <section id="admin-usersView" class="view-panel admin-view">
-        <section class="feed-panel"><div class="feed-head"><div><p class="feed-eyebrow">用户权限管理</p><h2>角色与权限矩阵</h2></div></div><div id="permissionMatrix" class="data-table"></div></section>
+        <section class="feed-panel">
+          <div class="feed-head"><div><p class="feed-eyebrow">账号管理</p><h2>系统登录账号</h2></div><div class="list-control"><span id="accountMeta">未加载</span><a class="report-link" href="/account-editor" target="_blank">新增账号</a></div></div>
+          <div id="accountTable" class="data-table"></div>
+        </section>
+      </section>
+
+      <section id="admin-user-managementView" class="view-panel admin-view">
+        <div class="dashboard-grid">
+          <section class="feed-panel"><div class="feed-head"><div><p class="feed-eyebrow">角色权限</p><h2>权限分配与操作范围</h2></div></div><div id="rolePermissionCards" class="admin-card-grid"></div></section>
+          <section class="feed-panel"><div class="feed-head"><div><p class="feed-eyebrow">部门分组</p><h2>用户分组统计</h2></div><span id="userGroupMeta">未加载</span></div><div id="userGroupChart" class="bar-chart"></div></section>
+        </div>
+        <section class="feed-panel">
+          <div class="feed-head"><div><p class="feed-eyebrow">用户范围</p><h2>账号角色与业务范围</h2></div></div>
+          <div id="userScopeTable" class="data-table"></div>
+        </section>
+        <section class="feed-panel">
+          <div class="feed-head"><div><p class="feed-eyebrow">操作记录</p><h2>用户操作审计</h2></div><span id="userActivityMeta">未加载</span></div>
+          <div id="userActivityTable" class="data-table"></div>
+        </section>
       </section>
 
       <section id="admin-settingsView" class="view-panel admin-view">
-        <section class="feed-panel"><div class="feed-head"><div><p class="feed-eyebrow">系统设置</p><h2>系统参数与预警阈值</h2></div></div><div id="systemSettings" class="admin-card-grid"></div></section>
+        <section class="feed-panel">
+          <div class="feed-head">
+            <div><p class="feed-eyebrow">系统设置</p><h2>运行参数与分析配置</h2></div>
+            <div class="list-control"><span id="systemSettingsMeta">未加载</span><button id="saveSystemSettingsBtn" class="primary" type="button">保存设置</button></div>
+          </div>
+          <div id="systemSettings" class="system-settings-grid"></div>
+        </section>
+        <section class="feed-panel">
+          <div class="feed-head"><div><p class="feed-eyebrow">系统维护</p><h2>路径、数据库与引擎状态</h2></div><button id="resetEngineBtn" type="button">重置分析引擎</button></div>
+          <div id="systemMaintenance" class="system-maintenance"></div>
+        </section>
       </section>
     </section>
   </main>
