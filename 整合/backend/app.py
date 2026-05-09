@@ -26,6 +26,7 @@ PLATFORM_SETTINGS_FILE = BASE_DIR / "backend" / "platform_settings.json"
 WATCHLIST_FILE = BASE_DIR / "backend" / "watchlist.json"
 COLLECTION_SOURCES_FILE = BASE_DIR / "backend" / "collection_sources.json"
 USERS_FILE = BASE_DIR / "backend" / "users.json"
+USER_ACTIVITY_FILE = BASE_DIR / "backend" / "user_activity.json"
 RUNTIME_CONFIG_FILE = BASE_DIR / "backend" / "runtime_config.json"
 CRAWLER_DIR = BASE_DIR / "crawler"
 CRAWLERS_DIR = BASE_DIR / "crawlers"
@@ -109,6 +110,9 @@ def load_runtime_config():
         "analysis_engine_file": "多模态融合分析_API.py",
         "analysis_max_workers": None,
         "auto_analyze_crawled_items": True,
+        "load_word_vector_model": True,
+        "strict_runtime": False,
+        "crawl_total_target": 200,
         "platform_cookies": {},
     }
     if not RUNTIME_CONFIG_FILE.exists():
@@ -127,6 +131,9 @@ def load_runtime_config():
             data.get("auto_analyze_crawled_items"),
             defaults["auto_analyze_crawled_items"],
         ),
+        "load_word_vector_model": _safe_bool(data.get("load_word_vector_model"), defaults["load_word_vector_model"]),
+        "strict_runtime": _safe_bool(data.get("strict_runtime"), defaults["strict_runtime"]),
+        "crawl_total_target": _safe_int(data.get("crawl_total_target"), defaults["crawl_total_target"], minimum=1, maximum=10000),
         "platform_cookies": cookies if isinstance(cookies, dict) else {},
     }
 
@@ -150,6 +157,20 @@ AUTO_ANALYZE_CRAWLED_ITEMS = _safe_bool(
     os.getenv("AUTO_ANALYZE_CRAWLED_ITEMS"),
     bool(RUNTIME_CONFIG.get("auto_analyze_crawled_items", True)),
 )
+LOAD_WORD_VECTOR_MODEL = _safe_bool(
+    os.getenv("LOAD_WORD_VECTOR_MODEL"),
+    bool(RUNTIME_CONFIG.get("load_word_vector_model", True)),
+)
+STRICT_RUNTIME = _safe_bool(
+    os.getenv("STRICT_RUNTIME"),
+    bool(RUNTIME_CONFIG.get("strict_runtime", False)),
+)
+CRAWL_TOTAL_TARGET = _safe_int(
+    os.getenv("CRAWL_TOTAL_TARGET") or RUNTIME_CONFIG.get("crawl_total_target"),
+    200,
+    minimum=1,
+    maximum=10000,
+)
 
 
 def runtime_cookie(platform, default=""):
@@ -157,6 +178,89 @@ def runtime_cookie(platform, default=""):
     value = cookies.get(platform) if isinstance(cookies, dict) else None
     value = str(value or "").strip()
     return value if value else default
+
+
+def save_runtime_config(data):
+    RUNTIME_CONFIG_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def runtime_effective_config():
+    return {
+        "analysis_engine_file": str(RUNTIME_CONFIG.get("analysis_engine_file") or ENGINE_FILE.name),
+        "analysis_engine_path": str(ENGINE_FILE),
+        "analysis_max_workers": ANALYSIS_MAX_WORKERS,
+        "auto_analyze_crawled_items": AUTO_ANALYZE_CRAWLED_ITEMS,
+        "load_word_vector_model": LOAD_WORD_VECTOR_MODEL,
+        "strict_runtime": STRICT_RUNTIME,
+        "crawl_total_target": CRAWL_TOTAL_TARGET,
+        "platform_cookies": {
+            platform: runtime_cookie(platform, "")
+            for platform in PLATFORMS
+        },
+    }
+
+
+def available_engine_files():
+    names = []
+    for path in sorted(BASE_DIR.glob("多模态融合分析*.py")):
+        if path.name not in names:
+            names.append(path.name)
+    current = ENGINE_FILE.name
+    if current and current not in names:
+        names.insert(0, current)
+    return names
+
+
+def apply_runtime_config(data, reset_engine=False):
+    global RUNTIME_CONFIG, ENGINE_FILE, DEFAULT_ANALYSIS_WORKERS, ANALYSIS_MAX_WORKERS
+    global AUTO_ANALYZE_CRAWLED_ITEMS, LOAD_WORD_VECTOR_MODEL, STRICT_RUNTIME, CRAWL_TOTAL_TARGET
+    global _engine, _runtime_ready, _startup_analysis_started
+
+    previous_engine_file = ENGINE_FILE
+    previous_load_word_vector = LOAD_WORD_VECTOR_MODEL
+    previous_strict_runtime = STRICT_RUNTIME
+
+    RUNTIME_CONFIG = data
+    ENGINE_FILE = resolve_runtime_path(data.get("analysis_engine_file"), "多模态融合分析_API.py")
+    DEFAULT_ANALYSIS_WORKERS = 4 if ENGINE_FILE.name.endswith("_API.py") else 1
+    ANALYSIS_MAX_WORKERS = max(1, _safe_int(data.get("analysis_max_workers"), DEFAULT_ANALYSIS_WORKERS, minimum=1, maximum=64))
+    AUTO_ANALYZE_CRAWLED_ITEMS = _safe_bool(data.get("auto_analyze_crawled_items"), True)
+    LOAD_WORD_VECTOR_MODEL = _safe_bool(data.get("load_word_vector_model"), True)
+    STRICT_RUNTIME = _safe_bool(data.get("strict_runtime"), False)
+    CRAWL_TOTAL_TARGET = _safe_int(data.get("crawl_total_target"), 200, minimum=1, maximum=10000)
+
+    should_reset_engine = (
+        reset_engine
+        or previous_engine_file != ENGINE_FILE
+        or previous_load_word_vector != LOAD_WORD_VECTOR_MODEL
+        or previous_strict_runtime != STRICT_RUNTIME
+    )
+    if should_reset_engine:
+        with _engine_lock:
+            _engine = None
+            _runtime_ready = False
+            _startup_analysis_started = False
+
+
+def sanitize_runtime_config_payload(payload):
+    payload = payload or {}
+    current = runtime_effective_config()
+    engine_file = str(payload.get("analysis_engine_file") or current["analysis_engine_file"]).strip()
+    if not engine_file:
+        engine_file = "多模态融合分析_API.py"
+    platform_cookies = payload.get("platform_cookies") if isinstance(payload.get("platform_cookies"), dict) else {}
+    return {
+        "analysis_engine_file": engine_file,
+        "analysis_max_workers": _safe_int(payload.get("analysis_max_workers"), current["analysis_max_workers"], minimum=1, maximum=64),
+        "auto_analyze_crawled_items": _safe_bool(payload.get("auto_analyze_crawled_items"), current["auto_analyze_crawled_items"]),
+        "load_word_vector_model": _safe_bool(payload.get("load_word_vector_model"), current["load_word_vector_model"]),
+        "strict_runtime": _safe_bool(payload.get("strict_runtime"), current["strict_runtime"]),
+        "crawl_total_target": _safe_int(payload.get("crawl_total_target"), current["crawl_total_target"], minimum=1, maximum=10000),
+        "platform_cookies": {
+            platform: str(platform_cookies.get(platform) or "").strip()
+            for platform in PLATFORMS
+        },
+    }
 
 
 def load_platform_settings_store():
@@ -225,8 +329,8 @@ def require_admin():
 
 def default_users():
     return [
-        {"username": "user", "password": "user123", "role": "user", "display_name": "普通用户"},
-        {"username": "admin", "password": "admin123", "role": "admin", "display_name": "管理员"},
+        {"username": "user", "password": "user123", "role": "user", "display_name": "普通用户", "phone": "", "department": "舆情监测组", "enabled": True},
+        {"username": "admin", "password": "admin123", "role": "admin", "display_name": "管理员", "phone": "", "department": "系统维护组", "enabled": True},
     ]
 
 
@@ -239,6 +343,23 @@ def load_users_store():
         data = default_users()
     if not isinstance(data, list):
         data = default_users()
+    normalized = []
+    changed = False
+    for user in data:
+        if not isinstance(user, dict) or not str(user.get("username") or "").strip():
+            changed = True
+            continue
+        next_user = dict(user)
+        next_user.setdefault("display_name", next_user.get("username", ""))
+        next_user.setdefault("role", "user")
+        next_user.setdefault("phone", "")
+        next_user.setdefault("department", "")
+        next_user.setdefault("enabled", True)
+        normalized.append(next_user)
+        changed = changed or next_user != user
+    if changed:
+        save_users_store(normalized)
+    data = normalized
     return data
 
 
@@ -246,9 +367,205 @@ def save_users_store(users):
     USERS_FILE.write_text(json.dumps(users, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+def load_user_activity_store():
+    if not USER_ACTIVITY_FILE.exists():
+        return []
+    try:
+        data = json.loads(USER_ACTIVITY_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+    return data if isinstance(data, list) else []
+
+
+def save_user_activity_store(items):
+    USER_ACTIVITY_FILE.write_text(json.dumps(items[:500], ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def log_user_activity(action, detail="", username=None, role=None):
+    try:
+        items = load_user_activity_store()
+        items.insert(
+            0,
+            {
+                "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "username": username or request_user(),
+                "role": role or request_role(),
+                "action": action,
+                "detail": detail,
+            },
+        )
+        save_user_activity_store(items)
+    except Exception:
+        pass
+
+
 def find_user(username):
     username = str(username or "").strip()
     return next((user for user in load_users_store() if user.get("username") == username), None)
+
+
+def public_user(user):
+    return {
+        "username": user.get("username", ""),
+        "role": "admin" if user.get("role") == "admin" else "user",
+        "display_name": user.get("display_name") or user.get("username", ""),
+        "phone": user.get("phone", ""),
+        "department": user.get("department", ""),
+        "enabled": bool(user.get("enabled", True)),
+    }
+
+
+def sanitize_admin_user_payload(payload, existing=None):
+    username = str(payload.get("username") or (existing or {}).get("username") or "").strip()
+    display_name = str(payload.get("display_name") or payload.get("displayName") or username).strip()
+    role = "admin" if str(payload.get("role") or (existing or {}).get("role") or "user").strip() == "admin" else "user"
+    return {
+        "username": username,
+        "display_name": display_name or username,
+        "role": role,
+        "phone": str(payload.get("phone") or (existing or {}).get("phone") or "").strip(),
+        "department": str(payload.get("department") or (existing or {}).get("department") or "").strip(),
+        "enabled": _safe_bool(payload.get("enabled"), bool((existing or {}).get("enabled", True))),
+        "password": str(payload.get("password") or (existing or {}).get("password") or "").strip(),
+    }
+
+
+ROLE_PERMISSION_PRESETS = {
+    "user": {
+        "label": "普通用户",
+        "permissions": ["查看监测首页", "舆情监测与检索", "查看风险分析", "查看舆情详情报告", "个人追踪"],
+        "denied": ["删除数据", "修改采集平台", "管理账号", "查看运行日志", "维护系统配置"],
+        "scope": "只能查看业务结果和提交采集申请，不能进入后台管理功能。",
+    },
+    "admin": {
+        "label": "管理员",
+        "permissions": ["全部前台功能", "采集源与平台管理", "采集任务管理", "运行日志查看", "账号管理", "用户权限与操作范围管理", "系统设置维护"],
+        "denied": [],
+        "scope": "可进入后台管理端，维护平台、任务、规则、模型、日志、账号与系统配置。",
+    },
+}
+
+
+def build_user_management_payload():
+    users = [public_user(user) for user in load_users_store()]
+    departments = {}
+    roles = {}
+    for user in users:
+        departments[user.get("department") or "未分组"] = departments.get(user.get("department") or "未分组", 0) + 1
+        role_label = ROLE_PERMISSION_PRESETS.get(user.get("role", "user"), {}).get("label", user.get("role", "user"))
+        roles[role_label] = roles.get(role_label, 0) + 1
+    return {
+        "users": users,
+        "role_permissions": ROLE_PERMISSION_PRESETS,
+        "departments": departments,
+        "roles": roles,
+        "activities": load_user_activity_store()[:100],
+    }
+
+
+def crawler_attr(module, name, default=None):
+    return getattr(module, name, default)
+
+
+def build_crawl_rules_payload():
+    categories = {
+        "platform_adapters": {"title": "平台适配规则", "items": []},
+        "keywords": {"title": "关键词规则", "items": []},
+        "fields": {"title": "抓取字段", "items": []},
+        "anti_crawler": {"title": "反爬策略参数", "items": []},
+        "frequency": {"title": "采集频率", "items": []},
+        "cleaning": {"title": "数据清洗规则", "items": []},
+    }
+    common_fields = ["id", "platform", "platform_name", "screen_name", "text", "pics", "created_at", "keyword", "matched_keywords", "crawl_time"]
+    for platform, info in PLATFORMS.items():
+        with crawler_import_context(info["dir"]):
+            setting_module = load_module(f"rules_setting_{platform}", info["dir"] / "setting.py")
+            keywords = _read_text_lines(crawler_attr(setting_module, "KEYWORD_LIST", []))
+            discovery = _read_text_lines(crawler_attr(setting_module, "CRAWL_KEYWORD_LIST", [])) or _read_text_lines(crawler_attr(setting_module, "DOUYIN_SEARCH_KEYWORD_LIST", []))
+            forums = _read_text_lines(crawler_attr(setting_module, "FORUM_LIST", []))
+            headers = crawler_attr(setting_module, "DEFAULT_REQUEST_HEADERS", {}) or {}
+            cookie_value = crawler_attr(setting_module, "COOKIES", "") or crawler_attr(setting_module, "DOUYIN_COOKIE", "") or headers.get("cookie", "")
+            max_pages = (
+                crawler_attr(setting_module, "MAX_PAGES", None)
+                or crawler_attr(setting_module, "MAX_PAGES_PER_KEYWORD", None)
+                or crawler_attr(setting_module, "MAX_PAGES_PER_FORUM", None)
+            )
+            categories["platform_adapters"]["items"].append(
+                {
+                    "platform": platform,
+                    "label": info["label"],
+                    "rules": [
+                        f"入口文件：{info['entry']}",
+                        f"写入集合：test.{info['collection']}",
+                        "接入方式：关键词搜索" if not forums else "接入方式：贴吧主题帖发现",
+                        f"平台状态：{'已接入' if platform in PLATFORMS else '待接入'}",
+                    ],
+                }
+            )
+            categories["keywords"]["items"].append(
+                {
+                    "platform": platform,
+                    "label": info["label"],
+                    "rules": [
+                        f"正文筛选关键词：{len(keywords)} 个",
+                        f"发现搜索词：{len(discovery) if discovery else len(keywords)} 个",
+                        f"贴吧/分区发现源：{len(forums)} 个" if forums else "贴吧/分区发现源：无",
+                        "要求正文命中关键词" if crawler_attr(setting_module, "REQUIRE_KEYWORD_MATCH", True) else "不强制正文命中关键词",
+                    ],
+                    "samples": (discovery or forums or keywords)[:8],
+                }
+            )
+            categories["fields"]["items"].append(
+                {
+                    "platform": platform,
+                    "label": info["label"],
+                    "rules": [
+                        "统一写入微博兼容字段结构",
+                        "图片字段 pics 保存本地绝对路径并由 /media 预览",
+                        "保留 matched_keywords 用于后续筛选与解释",
+                        f"核心字段：{', '.join(common_fields)}",
+                    ],
+                }
+            )
+            categories["anti_crawler"]["items"].append(
+                {
+                    "platform": platform,
+                    "label": info["label"],
+                    "rules": [
+                        f"请求间隔：{crawler_attr(setting_module, 'DOWNLOAD_DELAY', '未设置')} 秒",
+                        f"请求超时：{crawler_attr(setting_module, 'REQUEST_TIMEOUT', '未设置')} 秒",
+                        f"最大重试：{crawler_attr(setting_module, 'MAX_RETRY', '未设置')}",
+                        f"Cookie：{'已配置' if str(cookie_value).strip() else '未配置'}",
+                        f"系统代理：{'启用' if crawler_attr(setting_module, 'TRUST_ENV_PROXY', False) else '关闭'}",
+                    ],
+                }
+            )
+            categories["frequency"]["items"].append(
+                {
+                    "platform": platform,
+                    "label": info["label"],
+                    "rules": [
+                        f"单轮最大页数：{max_pages if max_pages is not None else '未设置'}",
+                        f"最近天数：{crawler_attr(setting_module, 'RECENT_DAYS', '按平台默认')}",
+                        f"搜索结果数量：{crawler_attr(setting_module, 'SEARCH_COUNT', crawler_attr(setting_module, 'THREAD_PAGE_SIZE', crawler_attr(setting_module, 'LIMIT_PER_KEYWORD', '按平台默认')))}",
+                        "随机交错采集：启用" if (crawler_attr(setting_module, "RANDOMIZE_CRAWL_ORDER", False) or crawler_attr(setting_module, "RANDOMIZE_FORUM_ORDER", False)) else "随机交错采集：未启用",
+                    ],
+                }
+            )
+            categories["cleaning"]["items"].append(
+                {
+                    "platform": platform,
+                    "label": info["label"],
+                    "rules": [
+                        "要求有图片" if crawler_attr(setting_module, "REQUIRE_IMAGES", False) else "不强制图片",
+                        "要求有文本" if crawler_attr(setting_module, "REQUIRE_TEXT", True) else "不强制文本",
+                        f"去重文件：{crawler_attr(setting_module, 'SEEN_IDS_FILE', '未设置')}",
+                        f"图片目录：{crawler_attr(setting_module, 'RESULT_DIR', 'result')}/{crawler_attr(setting_module, 'PIC_DIR', 'pic')}",
+                        f"时间旧帖丢弃率：{crawler_attr(setting_module, 'MAX_OLD_DROP_RATE', '按平台默认')}",
+                    ],
+                }
+            )
+    return {"categories": list(categories.values())}
 
 
 def load_collection_sources_store():
@@ -1605,6 +1922,11 @@ def platform_application_page():
     return send_from_directory(FRONTEND_DIR, "platform_application.html")
 
 
+@app.get("/account-editor")
+def account_editor_page():
+    return send_from_directory(FRONTEND_DIR, "account_editor.html")
+
+
 @app.get("/health")
 def health():
     try:
@@ -1742,16 +2064,15 @@ def login():
     user = find_user(username)
     if not user or user.get("password") != password:
         return jsonify({"ok": False, "error": "用户名或密码错误。"}), 401
+    if not user.get("enabled", True):
+        return jsonify({"ok": False, "error": "账号已被禁用，请联系管理员。"}), 403
     if role in {"user", "admin"} and user.get("role") != role:
         return jsonify({"ok": False, "error": "账号角色与登录入口不匹配。"}), 403
+    log_user_activity("登录系统", "登录成功", username=user.get("username"), role=user.get("role", "user"))
     return jsonify(
         {
             "ok": True,
-            "user": {
-                "username": user["username"],
-                "role": user.get("role", "user"),
-                "display_name": user.get("display_name") or user["username"],
-            },
+            "user": public_user(user),
         }
     )
 
@@ -1769,17 +2090,21 @@ def register():
     users = load_users_store()
     if any(user.get("username") == username for user in users):
         return jsonify({"ok": False, "error": "用户名已存在。"}), 409
-    user = {"username": username, "password": password, "role": "user", "display_name": display_name or username}
+    user = {
+        "username": username,
+        "password": password,
+        "role": "user",
+        "display_name": display_name or username,
+        "phone": "",
+        "department": "",
+        "enabled": True,
+    }
     users.append(user)
     save_users_store(users)
     return jsonify(
         {
             "ok": True,
-            "user": {
-                "username": user["username"],
-                "role": "user",
-                "display_name": user["display_name"],
-            },
+            "user": public_user(user),
         }
     )
 
@@ -1800,11 +2125,7 @@ def update_profile():
         return jsonify(
             {
                 "ok": True,
-                "user": {
-                    "username": user["username"],
-                    "role": user.get("role", "user"),
-                    "display_name": user.get("display_name") or user["username"],
-                },
+                "user": public_user(user),
             }
         )
     return jsonify({"ok": False, "error": "当前账号不存在。"}), 404
@@ -1830,6 +2151,148 @@ def update_password():
         save_users_store(users)
         return jsonify({"ok": True})
     return jsonify({"ok": False, "error": "当前账号不存在。"}), 404
+
+
+@app.get("/api/admin/accounts")
+def list_accounts():
+    blocked = require_admin()
+    if blocked:
+        return blocked
+    return jsonify({"ok": True, "items": [public_user(user) for user in load_users_store()]})
+
+
+@app.post("/api/admin/accounts")
+def create_account():
+    blocked = require_admin()
+    if blocked:
+        return blocked
+    payload = request.get_json(silent=True) or {}
+    item = sanitize_admin_user_payload(payload)
+    if not item["username"] or not item["password"]:
+        return jsonify({"ok": False, "error": "用户名和初始密码不能为空。"}), 400
+    if len(item["password"]) < 6:
+        return jsonify({"ok": False, "error": "密码至少 6 位。"}), 400
+    users = load_users_store()
+    if any(user.get("username") == item["username"] for user in users):
+        return jsonify({"ok": False, "error": "用户名已存在。"}), 409
+    users.append(item)
+    save_users_store(users)
+    log_user_activity("新增账号", f"创建账号 {item['username']}")
+    return jsonify({"ok": True, "item": public_user(item), "items": [public_user(user) for user in users]})
+
+
+@app.put("/api/admin/accounts/<username>")
+def update_account(username):
+    blocked = require_admin()
+    if blocked:
+        return blocked
+    payload = request.get_json(silent=True) or {}
+    users = load_users_store()
+    for index, user in enumerate(users):
+        if user.get("username") != username:
+            continue
+        next_user = sanitize_admin_user_payload(payload, existing=user)
+        if not next_user["username"]:
+            return jsonify({"ok": False, "error": "用户名不能为空。"}), 400
+        if next_user["username"] != username and any(entry.get("username") == next_user["username"] for entry in users):
+            return jsonify({"ok": False, "error": "新用户名已存在。"}), 409
+        if not next_user["password"]:
+            next_user["password"] = user.get("password", "")
+        users[index] = next_user
+        save_users_store(users)
+        log_user_activity("修改账号", f"更新账号 {username}")
+        return jsonify({"ok": True, "item": public_user(next_user), "items": [public_user(entry) for entry in users]})
+    return jsonify({"ok": False, "error": "账号不存在。"}), 404
+
+
+@app.post("/api/admin/accounts/<username>/reset-password")
+def reset_account_password(username):
+    blocked = require_admin()
+    if blocked:
+        return blocked
+    payload = request.get_json(silent=True) or {}
+    new_password = str(payload.get("password") or payload.get("new_password") or "").strip()
+    if len(new_password) < 6:
+        return jsonify({"ok": False, "error": "新密码至少 6 位。"}), 400
+    users = load_users_store()
+    for user in users:
+        if user.get("username") != username:
+            continue
+        user["password"] = new_password
+        save_users_store(users)
+        log_user_activity("重置密码", f"重置账号 {username} 的密码")
+        return jsonify({"ok": True, "item": public_user(user)})
+    return jsonify({"ok": False, "error": "账号不存在。"}), 404
+
+
+@app.get("/api/admin/user-management")
+def get_user_management():
+    blocked = require_admin()
+    if blocked:
+        return blocked
+    return jsonify({"ok": True, **build_user_management_payload()})
+
+
+@app.get("/api/admin/crawl-rules")
+def get_crawl_rules():
+    blocked = require_admin()
+    if blocked:
+        return blocked
+    return jsonify({"ok": True, **build_crawl_rules_payload()})
+
+
+@app.get("/api/admin/system-settings")
+def get_system_settings():
+    blocked = require_admin()
+    if blocked:
+        return blocked
+    return jsonify(
+        {
+            "ok": True,
+            "runtime": runtime_effective_config(),
+            "engine_options": available_engine_files(),
+            "paths": {
+                "base_dir": str(BASE_DIR),
+                "frontend_dir": str(FRONTEND_DIR),
+                "crawler_dir": str(CRAWLERS_DIR),
+                "runtime_config_file": str(RUNTIME_CONFIG_FILE),
+                "platform_settings_file": str(PLATFORM_SETTINGS_FILE),
+                "collection_sources_file": str(COLLECTION_SOURCES_FILE),
+                "users_file": str(USERS_FILE),
+            },
+            "database": {
+                "mongo_uri": getattr(setting, "MONGO_URI", ""),
+                "collections": {
+                    platform: info["collection"]
+                    for platform, info in PLATFORMS.items()
+                },
+            },
+            "platforms": platform_options(),
+        }
+    )
+
+
+@app.put("/api/admin/system-settings")
+def update_system_settings():
+    blocked = require_admin()
+    if blocked:
+        return blocked
+    payload = request.get_json(silent=True) or {}
+    config = sanitize_runtime_config_payload(payload)
+    save_runtime_config(config)
+    apply_runtime_config(config)
+    log_user_activity("修改系统设置", "更新运行参数与分析配置")
+    return jsonify({"ok": True, "runtime": runtime_effective_config(), "engine_options": available_engine_files()})
+
+
+@app.post("/api/admin/system-settings/reset-engine")
+def reset_system_engine():
+    blocked = require_admin()
+    if blocked:
+        return blocked
+    apply_runtime_config(RUNTIME_CONFIG, reset_engine=True)
+    log_user_activity("重置分析引擎", "已清空当前多模态分析引擎实例")
+    return jsonify({"ok": True, "runtime": runtime_effective_config()})
 
 
 @app.get("/api/collection-sources")
@@ -1965,6 +2428,9 @@ def get_weibo(doc_id):
 
 @app.post("/api/analyze/unprocessed")
 def analyze_unprocessed():
+    blocked = require_admin()
+    if blocked:
+        return blocked
     try:
         limit = max(1, min(int(request.args.get("limit", 20)), 100))
         processed, errors = analyze_unprocessed_documents(limit=limit)
