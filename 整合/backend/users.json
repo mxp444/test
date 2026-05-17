@@ -4,17 +4,19 @@
     "password": "123456",
     "role": "user",
     "display_name": "普通用户",
-    "phone": "",
-    "department": "",
-    "enabled": true
+    "phone": "18358802512",
+    "department": "哈工大威海",
+    "enabled": true,
+    "avatar_url": ""
   },
   {
     "username": "admin",
     "password": "admin123",
     "role": "admin",
-    "display_name": "管理员",
-    "phone": "",
-    "department": "",
-    "enabled": true
+    "display_name": "超级管理员",
+    "phone": "18358802512",
+    "department": "哈威计算机学院",
+    "enabled": true,
+    "avatar_url": "/uploads/ccf15f3b84c8419ab98ef21f43018abe.png"
   }
 ]

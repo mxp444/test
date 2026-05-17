@@ -1,0 +1,121 @@
+<mxfile host="app.diagrams.net" agent="ChatGPT">
+  <diagram id="usecase-diagram-lite" name="网络金融舆情风险监测系统用例图（精简版）">
+    <mxGraphModel dx="1193" dy="1555" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="590" pageHeight="390" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="fXAzanbtnQApM6s1P0rK-1" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=14;fontFamily=宋体;" value="" vertex="1">
+          <mxGeometry height="370" width="590" x="295" y="-410" as="geometry" />
+        </mxCell>
+        <mxCell id="c2" parent="1" style="rounded=0;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;strokeWidth=1;align=center;verticalAlign=top;spacingTop=6;fontFamily=宋体;fontSize=14;html=1;" value="网络金融舆情风险监测系统" vertex="1">
+          <mxGeometry height="330" width="400" x="389.5" y="-390" as="geometry" />
+        </mxCell>
+        <mxCell id="c3" parent="1" style="rounded=0;whiteSpace=wrap;html=1;strokeWidth=1;align=center;verticalAlign=top;spacingTop=5;fontFamily=宋体;fontSize=14;html=1;" value="前台业务端" vertex="1">
+          <mxGeometry height="285" width="165" x="404.5" y="-355" as="geometry" />
+        </mxCell>
+        <mxCell id="c4" parent="1" style="rounded=0;whiteSpace=wrap;html=1;strokeWidth=1;align=center;verticalAlign=top;spacingTop=5;fontFamily=宋体;fontSize=14;html=1;" value="后台管理端" vertex="1">
+          <mxGeometry height="285" width="165" x="609.5" y="-355" as="geometry" />
+        </mxCell>
+        <mxCell id="c5" parent="1" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;fontFamily=宋体;fontSize=14;html=1;" value="普通用户" vertex="1">
+          <mxGeometry height="42" width="26" x="319.5" y="-295" as="geometry" />
+        </mxCell>
+        <mxCell id="c6" parent="1" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;fontFamily=宋体;fontSize=14;html=1;" value="管理员" vertex="1">
+          <mxGeometry height="42" width="26" x="834.5" y="-295" as="geometry" />
+        </mxCell>
+        <mxCell id="c9" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;strokeWidth=1;align=center;verticalAlign=middle;fontFamily=宋体;fontSize=14;html=1;" value="登录/注册" vertex="1">
+          <mxGeometry height="20" width="70.83" x="422.21" y="-306.48" as="geometry" />
+        </mxCell>
+        <mxCell id="c10" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;strokeWidth=1;align=center;verticalAlign=middle;fontFamily=宋体;fontSize=14;html=1;" value="查看监测首页" vertex="1">
+          <mxGeometry height="25" width="88.54" x="472.1" y="-282.97" as="geometry" />
+        </mxCell>
+        <mxCell id="c11" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;strokeWidth=1;align=center;verticalAlign=middle;fontFamily=宋体;fontSize=14;html=1;" value="检索舆情数据" vertex="1">
+          <mxGeometry height="30" width="106.25" x="463.25" y="-254" as="geometry" />
+        </mxCell>
+        <mxCell id="c12" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;strokeWidth=1;align=center;verticalAlign=middle;fontFamily=宋体;fontSize=14;html=1;" value="查看风险分析结果" vertex="1">
+          <mxGeometry height="37.5" width="132.81" x="436.69" y="-224" as="geometry" />
+        </mxCell>
+        <mxCell id="c13" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;strokeWidth=1;align=center;verticalAlign=middle;fontFamily=宋体;fontSize=14;html=1;" value="查看舆情详情报告" vertex="1">
+          <mxGeometry height="35.29" width="125" x="444.5" y="-177.97" as="geometry" />
+        </mxCell>
+        <mxCell id="c14" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;strokeWidth=1;align=center;verticalAlign=middle;fontFamily=宋体;fontSize=14;html=1;" value="个人追踪" vertex="1">
+          <mxGeometry height="24" width="85" x="444.5" y="-128.55" as="geometry" />
+        </mxCell>
+        <mxCell id="c15" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;strokeWidth=1;align=center;verticalAlign=middle;fontFamily=宋体;fontSize=14;html=1;" value="提交采集源申请" vertex="1">
+          <mxGeometry height="30" width="106.25" x="404.5" y="-103.02999999999997" as="geometry" />
+        </mxCell>
+        <mxCell id="c16" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;strokeWidth=1;align=center;verticalAlign=middle;fontFamily=宋体;fontSize=14;html=1;" value="审核采集源申请" vertex="1">
+          <mxGeometry height="27.03" width="107" x="654.5" y="-300.06" as="geometry" />
+        </mxCell>
+        <mxCell id="c17" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;strokeWidth=1;align=center;verticalAlign=middle;fontFamily=宋体;fontSize=14;html=1;" value="管理平台配置" vertex="1">
+          <mxGeometry height="27.03" width="107" x="609.5" y="-273.03" as="geometry" />
+        </mxCell>
+        <mxCell id="c18" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;strokeWidth=1;align=center;verticalAlign=middle;fontFamily=宋体;fontSize=14;html=1;" value="管理采集任务" vertex="1">
+          <mxGeometry height="27.03" width="107" x="609.5" y="-240" as="geometry" />
+        </mxCell>
+        <mxCell id="c19" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;strokeWidth=1;align=center;verticalAlign=middle;fontFamily=宋体;fontSize=14;html=1;" value="查看运行日志" vertex="1">
+          <mxGeometry height="27.03" width="107" x="609.5" y="-205" as="geometry" />
+        </mxCell>
+        <mxCell id="c20" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;strokeWidth=1;align=center;verticalAlign=middle;fontFamily=宋体;fontSize=14;html=1;" value="查看模型状态" vertex="1">
+          <mxGeometry height="27.03" width="107" x="609.5" y="-168.03" as="geometry" />
+        </mxCell>
+        <mxCell id="c21" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;strokeWidth=1;align=center;verticalAlign=middle;fontFamily=宋体;fontSize=14;html=1;" value="账号/权限管理" vertex="1">
+          <mxGeometry height="27.03" width="107" x="624.5" y="-130.05999999999995" as="geometry" />
+        </mxCell>
+        <mxCell id="c22" parent="1" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;strokeWidth=1;align=center;verticalAlign=middle;fontFamily=宋体;fontSize=14;html=1;" value="系统设置" vertex="1">
+          <mxGeometry height="27.03" width="107" x="667.5" y="-103.02999999999997" as="geometry" />
+        </mxCell>
+        <mxCell id="c25" edge="1" parent="1" source="c5" style="endArrow=none;html=1;rounded=0;strokeWidth=1;fontFamily=宋体;fontSize=14;html=1;" target="c9" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c26" edge="1" parent="1" source="c5" style="endArrow=none;html=1;rounded=0;strokeWidth=1;fontFamily=宋体;fontSize=14;html=1;" target="c10" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c27" edge="1" parent="1" source="c5" style="endArrow=none;html=1;rounded=0;strokeWidth=1;fontFamily=宋体;fontSize=14;html=1;" target="c11" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c28" edge="1" parent="1" source="c5" style="endArrow=none;html=1;rounded=0;strokeWidth=1;fontFamily=宋体;fontSize=14;html=1;" target="c12" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c29" edge="1" parent="1" source="c5" style="endArrow=none;html=1;rounded=0;strokeWidth=1;fontFamily=宋体;fontSize=14;html=1;" target="c13" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c30" edge="1" parent="1" source="c5" style="endArrow=none;html=1;rounded=0;strokeWidth=1;fontFamily=宋体;fontSize=14;html=1;" target="c14" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c31" edge="1" parent="1" source="c5" style="endArrow=none;html=1;rounded=0;strokeWidth=1;fontFamily=宋体;fontSize=14;html=1;" target="c15" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c32" edge="1" parent="1" source="c6" style="endArrow=none;html=1;rounded=0;strokeWidth=1;fontFamily=宋体;fontSize=14;html=1;" target="c16" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c33" edge="1" parent="1" source="c6" style="endArrow=none;html=1;rounded=0;strokeWidth=1;fontFamily=宋体;fontSize=14;html=1;" target="c17" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c34" edge="1" parent="1" source="c6" style="endArrow=none;html=1;rounded=0;strokeWidth=1;fontFamily=宋体;fontSize=14;html=1;" target="c18" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c35" edge="1" parent="1" source="c6" style="endArrow=none;html=1;rounded=0;strokeWidth=1;fontFamily=宋体;fontSize=14;html=1;" target="c19" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c36" edge="1" parent="1" source="c6" style="endArrow=none;html=1;rounded=0;strokeWidth=1;fontFamily=宋体;fontSize=14;html=1;" target="c20" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c37" edge="1" parent="1" source="c6" style="endArrow=none;html=1;rounded=0;strokeWidth=1;fontFamily=宋体;fontSize=14;html=1;" target="c21" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c38" edge="1" parent="1" source="c6" style="endArrow=none;html=1;rounded=0;strokeWidth=1;fontFamily=宋体;fontSize=14;html=1;" target="c22" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c39" edge="1" parent="1" source="c6" style="endArrow=block;endFill=0;html=1;rounded=0;strokeWidth=1;fontFamily=宋体;fontSize=14;html=1;" target="c5" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="847.5" y="-400" />
+              <mxPoint x="584.5" y="-400" />
+              <mxPoint x="334.5" y="-400" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -1,0 +1,77 @@
+<mxfile host="app.diagrams.net">
+  <diagram id="risk_warning_display_flow" name="Page-1">
+    <mxGraphModel dx="900" dy="1100" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="590" pageHeight="980" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <mxCell id="title" value="4.4 风险预警展示平台实现流程" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;fontFamily=宋体;fontSize=14;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="25" y="20" width="540" height="30" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="a1" value="MongoDB 舆情数据&lt;br&gt;原始帖子 + 图片路径 + analysis 分析结果" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;fontFamily=宋体;fontSize=14;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="95" y="70" width="400" height="58" as="geometry"/>
+        </mxCell>
+        <mxCell id="a2" value="后端 /api/items 接口&lt;br&gt;聚合四个平台集合并序列化文档" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;fontFamily=宋体;fontSize=14;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="95" y="150" width="400" height="58" as="geometry"/>
+        </mxCell>
+        <mxCell id="a3" value="前端 app.js 接收数据&lt;br&gt;统一平台、作者、正文、图片、风险分字段" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;fontFamily=宋体;fontSize=14;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="95" y="230" width="400" height="58" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="group1" value="舆情监测页面" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fillColor=#f2f2f2;strokeColor=#666666;strokeWidth=1;fontFamily=宋体;fontSize=14;fontStyle=1;align=center;verticalAlign=top;spacingTop=8;" vertex="1" parent="1">
+          <mxGeometry x="30" y="325" width="530" height="155" as="geometry"/>
+        </mxCell>
+        <mxCell id="b1" value="帖子卡片展示&lt;br&gt;平台 / 用户 / 时间 / 正文 / 图片" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;fontFamily=宋体;fontSize=14;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="55" y="375" width="150" height="64" as="geometry"/>
+        </mxCell>
+        <mxCell id="b2" value="风险标签展示&lt;br&gt;综合风险分 / 中高风险 / 高风险" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;fontFamily=宋体;fontSize=14;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="220" y="375" width="150" height="64" as="geometry"/>
+        </mxCell>
+        <mxCell id="b3" value="文本展开与头像&lt;br&gt;长文本折叠 / 用户首字头像" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;fontFamily=宋体;fontSize=14;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="385" y="375" width="150" height="64" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="c1" value="筛选与预警定位&lt;br&gt;平台筛选 / 风险等级 / 已分析 / 近两个月" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;fontFamily=宋体;fontSize=14;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="95" y="520" width="400" height="62" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="group2" value="风险结果查看" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fillColor=#f2f2f2;strokeColor=#666666;strokeWidth=1;fontFamily=宋体;fontSize=14;fontStyle=1;align=center;verticalAlign=top;spacingTop=8;" vertex="1" parent="1">
+          <mxGeometry x="30" y="620" width="530" height="155" as="geometry"/>
+        </mxCell>
+        <mxCell id="d1" value="风险分析页&lt;br&gt;平台分布 / 风险等级 / 情感统计" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;fontFamily=宋体;fontSize=14;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="55" y="670" width="150" height="64" as="geometry"/>
+        </mxCell>
+        <mxCell id="d2" value="详情报告页&lt;br&gt;文本 / 图像 / OCR / 融合评分 / 建议" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;fontFamily=宋体;fontSize=14;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="220" y="670" width="150" height="64" as="geometry"/>
+        </mxCell>
+        <mxCell id="d3" value="个人追踪页&lt;br&gt;加入追踪 / 重点舆情持续关注" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;fontFamily=宋体;fontSize=14;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="385" y="670" width="150" height="64" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e1n" value="形成风险预警展示闭环&lt;br&gt;数据读取 → 列表预警 → 筛选定位 → 详情分析 → 追踪处置" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;fontFamily=宋体;fontSize=14;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="75" y="825" width="440" height="60" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e1" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=1.5;strokeColor=#000000;fontFamily=宋体;fontSize=14;" edge="1" parent="1" source="a1" target="a2">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e2" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=1.5;strokeColor=#000000;fontFamily=宋体;fontSize=14;" edge="1" parent="1" source="a2" target="a3">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e3" value="渲染列表" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=1.5;strokeColor=#000000;fontFamily=宋体;fontSize=14;" edge="1" parent="1" source="a3" target="b2">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e4" value="筛选" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=1.5;strokeColor=#000000;fontFamily=宋体;fontSize=14;" edge="1" parent="1" source="b2" target="c1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e5" value="查看结果" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=1.5;strokeColor=#000000;fontFamily=宋体;fontSize=14;" edge="1" parent="1" source="c1" target="d2">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e6" value="业务闭环" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=1.5;strokeColor=#000000;fontFamily=宋体;fontSize=14;" edge="1" parent="1" source="d2" target="e1n">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

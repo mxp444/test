@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mxfile host="app.diagrams.net" modified="2026-05-12T00:00:00.000Z" agent="ChatGPT" version="24.7.17" type="device">
+  <diagram id="backend-core-class-diagram-minimal" name="后端核心类图_极简版">
+    <mxGraphModel dx="900" dy="1000" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="590" pageHeight="920" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="FlaskApp" parent="1" value="&lt;div align=&quot;center&quot;&gt;&lt;b&gt;FlaskApp&lt;/b&gt;&lt;/div&gt;&lt;hr size=&quot;1&quot;&gt;+ app: Flask&lt;br&gt;+ runtime_config: dict&lt;hr size=&quot;1&quot;&gt;+ start_crawl(): Response&lt;br&gt;+ analyze_unprocessed(): Response&lt;br&gt;+ get_items(): Response" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1;fontFamily=宋体;fontSize=14;fontColor=#000000;align=left;verticalAlign=top;spacing=6;" vertex="1">
+          <mxGeometry as="geometry" x="185" y="25" width="220" height="125"/>
+        </mxCell>
+        <mxCell id="AuthManager" parent="1" value="&lt;div align=&quot;center&quot;&gt;&lt;b&gt;AuthManager&lt;/b&gt;&lt;/div&gt;&lt;hr size=&quot;1&quot;&gt;- users_file: Path&lt;hr size=&quot;1&quot;&gt;+ login(): User&lt;br&gt;+ require_admin(): bool" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1;fontFamily=宋体;fontSize=14;fontColor=#000000;align=left;verticalAlign=top;spacing=6;" vertex="1">
+          <mxGeometry as="geometry" x="25" y="220" width="220" height="115"/>
+        </mxCell>
+        <mxCell id="MongoRepository" parent="1" value="&lt;div align=&quot;center&quot;&gt;&lt;b&gt;MongoRepository&lt;/b&gt;&lt;/div&gt;&lt;hr size=&quot;1&quot;&gt;- database_name: str&lt;br&gt;- platform_collections: dict&lt;hr size=&quot;1&quot;&gt;+ serialize_doc(): dict&lt;br&gt;+ update_analysis(): bool" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1;fontFamily=宋体;fontSize=14;fontColor=#000000;align=left;verticalAlign=top;spacing=6;" vertex="1">
+          <mxGeometry as="geometry" x="345" y="220" width="220" height="125"/>
+        </mxCell>
+        <mxCell id="CrawlTask" parent="1" value="&lt;div align=&quot;center&quot;&gt;&lt;b&gt;CrawlTask&lt;/b&gt;&lt;/div&gt;&lt;hr size=&quot;1&quot;&gt;- platforms: list&lt;br&gt;- status: str&lt;hr size=&quot;1&quot;&gt;+ start(): void&lt;br&gt;+ pause(): void&lt;br&gt;+ snapshot(): dict" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1;fontFamily=宋体;fontSize=14;fontColor=#000000;align=left;verticalAlign=top;spacing=6;" vertex="1">
+          <mxGeometry as="geometry" x="25" y="455" width="220" height="125"/>
+        </mxCell>
+        <mxCell id="AnalysisManager" parent="1" value="&lt;div align=&quot;center&quot;&gt;&lt;b&gt;AnalysisManager&lt;/b&gt;&lt;/div&gt;&lt;hr size=&quot;1&quot;&gt;- analyzer: MultimodalRiskFusion&lt;hr size=&quot;1&quot;&gt;+ analyze_item(): dict&lt;br&gt;+ write_analysis_result(): void" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1;fontFamily=宋体;fontSize=14;fontColor=#000000;align=left;verticalAlign=top;spacing=6;" vertex="1">
+          <mxGeometry as="geometry" x="345" y="455" width="220" height="125"/>
+        </mxCell>
+        <mxCell id="AdminDatabaseService" parent="1" value="&lt;div align=&quot;center&quot;&gt;&lt;b&gt;AdminDatabaseService&lt;/b&gt;&lt;/div&gt;&lt;hr size=&quot;1&quot;&gt;- mongo_client: MongoClient&lt;hr size=&quot;1&quot;&gt;+ query_documents(): list&lt;br&gt;+ update_document(): bool&lt;br&gt;+ delete_document(): bool" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1;fontFamily=宋体;fontSize=14;fontColor=#000000;align=left;verticalAlign=top;spacing=6;" vertex="1">
+          <mxGeometry as="geometry" x="185" y="690" width="220" height="125"/>
+        </mxCell>
+        <mxCell id="dep_flask_auth" parent="1" value="认证" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;endArrow=open;endFill=0;strokeColor=#000000;strokeWidth=1;fontFamily=宋体;fontSize=13;fontColor=#000000;labelBackgroundColor=#ffffff;" edge="1" source="FlaskApp" target="AuthManager">
+          <mxGeometry as="geometry" relative="1"/>
+        </mxCell>
+        <mxCell id="dep_flask_mongo" parent="1" value="数据访问" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;endArrow=open;endFill=0;strokeColor=#000000;strokeWidth=1;fontFamily=宋体;fontSize=13;fontColor=#000000;labelBackgroundColor=#ffffff;" edge="1" source="FlaskApp" target="MongoRepository">
+          <mxGeometry as="geometry" relative="1"/>
+        </mxCell>
+        <mxCell id="comp_flask_crawl" parent="1" value="采集任务" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;startArrow=diamond;startFill=1;endArrow=none;strokeColor=#000000;strokeWidth=1;fontFamily=宋体;fontSize=13;fontColor=#000000;labelBackgroundColor=#ffffff;" edge="1" source="FlaskApp" target="CrawlTask">
+          <mxGeometry as="geometry" relative="1"/>
+        </mxCell>
+        <mxCell id="dep_flask_analysis" parent="1" value="分析调用" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;endArrow=open;endFill=0;strokeColor=#000000;strokeWidth=1;fontFamily=宋体;fontSize=13;fontColor=#000000;labelBackgroundColor=#ffffff;" edge="1" source="FlaskApp" target="AnalysisManager">
+          <mxGeometry as="geometry" relative="1"/>
+        </mxCell>
+        <mxCell id="dep_flask_admin" parent="1" value="后台管理" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;endArrow=open;endFill=0;strokeColor=#000000;strokeWidth=1;fontFamily=宋体;fontSize=13;fontColor=#000000;labelBackgroundColor=#ffffff;" edge="1" source="FlaskApp" target="AdminDatabaseService">
+          <mxGeometry as="geometry" relative="1">
+            <Array as="points">
+              <mxPoint x="295" y="650"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="dep_crawl_mongo" parent="1" value="写入数据" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;endArrow=open;endFill=0;strokeColor=#000000;strokeWidth=1;fontFamily=宋体;fontSize=13;fontColor=#000000;labelBackgroundColor=#ffffff;" edge="1" source="CrawlTask" target="MongoRepository">
+          <mxGeometry as="geometry" relative="1">
+            <Array as="points">
+              <mxPoint x="295" y="390"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="dep_analysis_mongo" parent="1" value="读写结果" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;endArrow=open;endFill=0;strokeColor=#000000;strokeWidth=1;fontFamily=宋体;fontSize=13;fontColor=#000000;labelBackgroundColor=#ffffff;" edge="1" source="AnalysisManager" target="MongoRepository">
+          <mxGeometry as="geometry" relative="1"/>
+        </mxCell>
+        <mxCell id="dep_admin_mongo" parent="1" value="复用连接" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;endArrow=open;endFill=0;strokeColor=#000000;strokeWidth=1;fontFamily=宋体;fontSize=13;fontColor=#000000;labelBackgroundColor=#ffffff;" edge="1" source="AdminDatabaseService" target="MongoRepository">
+          <mxGeometry as="geometry" relative="1">
+            <Array as="points">
+              <mxPoint x="490" y="650"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="legend" parent="1" value="说明：本图为压缩版类图，仅展示后端接口设计中的核心类及主要依赖。" style="text;html=1;strokeColor=none;fillColor=none;fontFamily=宋体;fontSize=13;fontColor=#000000;align=left;verticalAlign=middle;" vertex="1">
+          <mxGeometry as="geometry" x="35" y="850" width="520" height="30"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

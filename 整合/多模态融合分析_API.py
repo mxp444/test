@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
 Aliyun API backed multimodal fusion analysis.
 
@@ -24,7 +24,11 @@ import urllib.request
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
-DEFAULT_MODEL = os.getenv("DASHSCOPE_MODEL", os.getenv("ALIYUN_MODEL", "qwen3.5-flash"))
+from encoding_guard import install_encoding_guard
+
+install_encoding_guard()
+
+DEFAULT_MODEL = "qwen3-vl-flash-2025-10-15"
 ALIYUN_BASE_URL = os.getenv(
     "DASHSCOPE_BASE_URL",
     os.getenv("ALIYUN_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1"),
@@ -99,7 +103,7 @@ class AliyunMultimodalRiskAnalyzer:
     """Ask Qwen-VL to complete feature extraction, fusion, network-layer analysis, and final judgment."""
 
     def __init__(self, api_key: Optional[str] = None, model: str = DEFAULT_MODEL):
-        self.api_key = api_key or os.getenv("DASHSCOPE_API_KEY") or os.getenv("ALIYUN_API_KEY") or "sk-c628b6ed3d5f45b6b30a3f1ba13431da"
+        self.api_key = "sk-06c74bb0efd248c1bce84d1dc3658e37"
         self.model = model
         if not self.api_key:
             raise RuntimeError(
@@ -149,27 +153,14 @@ class AliyunMultimodalRiskAnalyzer:
         )
 
         try:
-            print(f"[timer] Sending streaming API request: {ALIYUN_CHAT_COMPLETIONS_URL}")
+            print(f"[timer] Sending API request: {ALIYUN_CHAT_COMPLETIONS_URL}")
             start_time = time.perf_counter()
             with urllib.request.urlopen(request, timeout=120) as response:
-                content_type = response.headers.get("Content-Type", "")
-                if "text/event-stream" in content_type.lower():
-                    content, first_content_elapsed = self._read_streaming_content(response, start_time)
-                    elapsed_seconds = time.perf_counter() - start_time
-                    print(f"[timer] API stream completed in {elapsed_seconds:.3f}s ({elapsed_seconds * 1000:.1f} ms)")
-                    return (
-                        {"choices": [{"message": {"content": content}}]},
-                        {
-                            "first_content_elapsed_seconds": first_content_elapsed,
-                            "total_elapsed_seconds": elapsed_seconds,
-                        },
-                    )
-
-                response_body = response.read()
+                content = self._read_streaming_content(response)
             elapsed_seconds = time.perf_counter() - start_time
             print(f"[timer] API response received in {elapsed_seconds:.3f}s ({elapsed_seconds * 1000:.1f} ms)")
             return (
-                json.loads(response_body.decode("utf-8")),
+                {"choices": [{"message": {"content": content}}]},
                 {
                     "first_content_elapsed_seconds": None,
                     "total_elapsed_seconds": elapsed_seconds,
@@ -181,41 +172,42 @@ class AliyunMultimodalRiskAnalyzer:
         except urllib.error.URLError as exc:
             raise RuntimeError(f"阿里云百炼 API 请求失败: {exc}") from exc
 
-    def _read_streaming_content(self, response: Any, start_time: float) -> Tuple[str, Optional[float]]:
+    def _read_streaming_content(self, response: Any) -> str:
         content_parts = []
-        first_content_elapsed = None
-
+        raw_events = []
         for raw_line in response:
             line = raw_line.decode("utf-8", errors="replace").strip()
             if not line or line.startswith(":") or not line.startswith("data:"):
                 continue
-
             data = line[5:].strip()
             if data == "[DONE]":
                 break
-
+            if len(raw_events) < 5:
+                raw_events.append(data[:500])
             try:
                 chunk = json.loads(data)
             except json.JSONDecodeError:
                 continue
-
+            if chunk.get("error"):
+                raise RuntimeError(f"阿里云百炼流式响应错误: {json.dumps(chunk.get('error'), ensure_ascii=False)}")
             choice = (chunk.get("choices") or [{}])[0]
             delta = choice.get("delta") or {}
+            message = choice.get("message") or {}
             piece = delta.get("content", "")
-            if isinstance(piece, list):
-                piece = "".join(item.get("text", "") if isinstance(item, dict) else str(item) for item in piece)
             if not piece:
-                continue
-
-            if first_content_elapsed is None:
-                first_content_elapsed = time.perf_counter() - start_time
-                print(
-                    f"[timer] First streamed content received in "
-                    f"{first_content_elapsed:.3f}s ({first_content_elapsed * 1000:.1f} ms)"
+                piece = message.get("content", "")
+            if isinstance(piece, list):
+                piece = "".join(
+                    item.get("text", "") if isinstance(item, dict) else str(item)
+                    for item in piece
                 )
-            content_parts.append(str(piece))
-
-        return "".join(content_parts), first_content_elapsed
+            if piece:
+                content_parts.append(str(piece))
+        content = "".join(content_parts)
+        if not content.strip():
+            preview = " | ".join(raw_events) if raw_events else "<no data events>"
+            raise RuntimeError(f"阿里云百炼流式响应没有正文内容，模型可能不兼容 chat/completions。raw={preview}")
+        return content
 
     def _build_payload(self, post_text: str, image_path: Path) -> Dict[str, Any]:
         return {
@@ -459,7 +451,7 @@ class AliyunMultimodalRiskAnalyzer:
 2. 你必须根据输入文本和图片内容重新判断所有标签、分数、风险等级和结论。
 3. 不能发明标签；所有分类标签必须从下面给定的标签体系中选择。
 4. 我只提供分类体系和输出结构，不提供固定词库；不要把类别名当作词库机械匹配，也不要凭模板占位生成命中词。
-5. 快速模式：优先一次性给出近似判断，不做冗长推理、反复校验或展开解释；输出格式不能变，但内容要尽量短。
+5. 对于数字形式的结果，必须有小数点后一位，显得更像模型输出。
 
 客观校准规则：
 1. 这是风险监测任务，但不能因为内容“涉及金融、基金、保险、股票、理财”等主题就默认判为中风险或更高。
@@ -467,6 +459,7 @@ class AliyunMultimodalRiskAnalyzer:
 3. 高风险必须至少有两类相互印证的风险信号，或者一个非常明确的强风险信号；否则 total_score 应低于 70。
 4. 如果文本与图片只是共同出现正常金融主题，finance_synergy 可以较高，但 overall_risk 不应因此自动升高；必须区分“金融相关性”和“金融风险性”。
 5. 不要输出任何分析过程、思考步骤、计算细节、模型推理等内容；只输出最终 JSON。
+6. 先定最终风险分数，再定最终风险等级。小于30为低，此外小于50为中，此外小于70为中高，70及以上为高。
 
 一、金融属性标签体系 FINANCE_LABELS：
 {json.dumps(FINANCE_LABELS, ensure_ascii=False, indent=2)}
@@ -750,7 +743,8 @@ class MultimodalRiskFusion:
         self.component_load_seconds: Dict[str, float] = {}
         self.init_errors: List[str] = []
 
-        selected_model = model or os.getenv("DASHSCOPE_MODEL") or os.getenv("ALIYUN_MODEL") or DEFAULT_MODEL
+        self.api_key = api_key
+        selected_model = model or DEFAULT_MODEL
         self.remote_analyzer = AliyunMultimodalRiskAnalyzer(api_key=api_key, model=selected_model)
         env_api_key = api_key or os.getenv("DASHSCOPE_API_KEY") or os.getenv("ALIYUN_API_KEY")
         if env_api_key:
@@ -776,6 +770,7 @@ class MultimodalRiskFusion:
         runtime.setdefault("init_errors", self.init_errors)
         runtime.setdefault("load_word_vector_model", self.load_word_vector_model)
         runtime.setdefault("engine_file", str(Path(__file__).resolve()))
+        runtime.setdefault("aliyun_model", self.model)
         return result
 
     def analyze_batch(self, items: Iterable[Dict[str, str]]) -> List[Dict[str, Any]]:
@@ -804,3 +799,6 @@ if __name__ == "__main__":
     demo_image = r"C:\Users\R9000P\Desktop\毕设\整合\pics\cd11b4851a0b415cd1a7f7c98560708f.jpg"
     analyzer = MultimodalRiskFusion()
     print(json.dumps(analyzer.analyze(demo_text, demo_image), ensure_ascii=False, indent=2))
+
+
+

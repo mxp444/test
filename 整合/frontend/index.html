@@ -67,9 +67,23 @@
     </div>
     <div class="header-status">
       <span id="healthStatus" class="status-pill">系统自检中</span>
-      <div class="account-chip">
-        <span id="currentUserLabel">未登录</span>
-        <button id="logoutBtn" type="button">退出</button>
+      <div class="account-chip" id="accountMenu">
+        <button id="accountMenuBtn" class="account-menu-btn" type="button" aria-expanded="false" aria-controls="accountMenuPanel">
+          <span class="account-menu-avatar" id="accountMenuAvatar">用</span>
+          <span class="account-menu-meta">
+            <strong id="accountMenuName">未登录</strong>
+            <em id="accountMenuRole">User</em>
+          </span>
+          <span class="account-menu-caret">⌄</span>
+        </button>
+        <div id="accountMenuPanel" class="account-menu-panel is-hidden">
+          <div class="account-menu-panel-head">
+            <strong id="accountMenuPanelName">未登录</strong>
+            <p id="accountMenuPanelEmail">未登录</p>
+          </div>
+          <a id="accountProfileLink" class="account-menu-link" href="#profile">个人资料</a>
+          <button id="logoutBtn" type="button">退出登录</button>
+        </div>
       </div>
     </div>
   </header>
@@ -77,29 +91,30 @@
   <main id="appShell" class="app-shell">
     <aside class="sidebar">
       <section class="sidebar-card nav-card">
-        <div class="nav-group-title">前台业务端</div>
-        <a class="nav-link is-active" href="#home" data-view="home" data-role="user">首页</a>
-        <a class="nav-link" href="#collection" data-view="collection" data-role="user">数据采集</a>
-        <a class="nav-link" href="#monitor" data-view="monitor" data-role="user">舆情监测</a>
-        <a class="nav-link" href="#tracking" data-view="tracking" data-role="user">个人追踪</a>
-        <a class="nav-link" href="#risk" data-view="risk" data-role="user">风险分析</a>
-        <a class="nav-link" href="#profile" data-view="profile" data-role="user">个人设置</a>
-        <div class="nav-group-title admin-only">后台管理端</div>
-        <a class="nav-link admin-only" href="#admin-platforms" data-view="admin-platforms" data-role="admin">平台管理</a>
-        <a class="nav-link admin-only" href="#admin-tasks" data-view="admin-tasks" data-role="admin">采集任务管理</a>
-        <a class="nav-link admin-only" href="#admin-models" data-view="admin-models" data-role="admin">模型管理</a>
-        <a class="nav-link admin-only" href="#admin-logs" data-view="admin-logs" data-role="admin">运行日志</a>
-        <a class="nav-link admin-only" href="#admin-users" data-view="admin-users" data-role="admin">账号管理</a>
-        <a class="nav-link admin-only" href="#admin-user-management" data-view="admin-user-management" data-role="admin">用户管理</a>
-        <a class="nav-link admin-only" href="#admin-settings" data-view="admin-settings" data-role="admin">系统设置</a>
-      </section>
-
-      <section class="sidebar-card">
-        <div class="sidebar-head">
-          <h2>使用对象</h2>
-          <span>Position</span>
+        <div class="nav-group" data-nav-group="front">
+          <button class="nav-group-title" type="button" data-nav-toggle="front" aria-expanded="true">前台业务端</button>
+          <div class="nav-group-items">
+            <a class="nav-link is-active" href="#summary" data-view="home" data-role="user">汇总</a>
+            <a class="nav-link" href="#monitor" data-view="monitor" data-role="user">舆情监测</a>
+            <a class="nav-link" href="#tracking" data-view="tracking" data-role="user">个人追踪</a>
+            <a class="nav-link" href="#risk" data-view="risk" data-role="user">风险分析</a>
+            <a class="nav-link" href="#collection" data-view="collection" data-role="user">数据采集</a>
+            <a class="nav-link" href="#profile" data-view="profile" data-role="user">个人资料</a>
+          </div>
         </div>
-        <p class="sidebar-note">本系统面向监管部门、内部业务人员和管理员。普通用户处理舆情业务，管理员负责平台、规则、模型、日志和权限维护。</p>
+        <div class="nav-group admin-only" data-nav-group="admin">
+          <button class="nav-group-title" type="button" data-nav-toggle="admin" aria-expanded="true">后台管理端</button>
+          <div class="nav-group-items">
+            <a class="nav-link" href="#admin-platforms" data-view="admin-platforms" data-role="admin">平台管理</a>
+            <a class="nav-link" href="#admin-tasks" data-view="admin-tasks" data-role="admin">采集任务管理</a>
+            <a class="nav-link" href="#admin-models" data-view="admin-models" data-role="admin">模型管理</a>
+            <a class="nav-link" href="#admin-logs" data-view="admin-logs" data-role="admin">运行日志</a>
+            <a class="nav-link" href="#admin-database" data-view="admin-database" data-role="admin">数据库管理</a>
+            <a class="nav-link" href="#admin-users" data-view="admin-users" data-role="admin">账号管理</a>
+            <a class="nav-link" href="#admin-user-management" data-view="admin-user-management" data-role="admin">用户管理</a>
+            <a class="nav-link" href="#admin-settings" data-view="admin-settings" data-role="admin">系统设置</a>
+          </div>
+        </div>
       </section>
 
     </aside>
@@ -107,24 +122,34 @@
     <section class="content-column">
       <section id="homeView" class="view-panel is-active">
         <div id="overviewCards" class="overview-grid"></div>
+        <section class="feed-panel">
+          <div class="feed-head">
+            <div>
+              <p class="feed-eyebrow">新增趋势</p>
+              <h2>每日新增舆情数据变化</h2>
+            </div>
+            <span id="dailyTrendMeta">最近14天</span>
+          </div>
+          <div id="dailyTrendChart" class="line-chart"></div>
+        </section>
         <div class="dashboard-grid">
           <section class="feed-panel">
             <div class="feed-head">
               <div>
-                <p class="feed-eyebrow">风险等级分布</p>
-                <h2>监测风险概览</h2>
+                <p class="feed-eyebrow">风险等级</p>
+                <h2>舆情等级分布</h2>
               </div>
             </div>
-            <div id="riskDistribution" class="bar-chart"></div>
+            <div id="riskDistribution" class="donut-chart"></div>
           </section>
           <section class="feed-panel">
             <div class="feed-head">
               <div>
-                <p class="feed-eyebrow">平台占比</p>
-                <h2>舆情来源构成</h2>
+                <p class="feed-eyebrow">来源平台</p>
+                <h2>舆情来源分布</h2>
               </div>
             </div>
-            <div id="platformDistribution" class="bar-chart"></div>
+            <div id="platformDistribution" class="donut-chart"></div>
           </section>
         </div>
         <section class="feed-panel">
@@ -226,9 +251,19 @@
       </section>
 
       <section id="riskView" class="view-panel">
+        <section class="feed-panel">
+          <div class="feed-head">
+            <div>
+              <p class="feed-eyebrow">风险趋势</p>
+              <h2>每日中高风险舆情变化</h2>
+            </div>
+            <span id="riskTrendMeta">最近14天</span>
+          </div>
+          <div id="riskTrendChart" class="line-chart"></div>
+        </section>
         <div class="dashboard-grid">
-          <section class="feed-panel"><div class="feed-head"><div><p class="feed-eyebrow">风险类型</p><h2>风险分类分布</h2></div></div><div id="riskTypeChart" class="bar-chart"></div></section>
-          <section class="feed-panel"><div class="feed-head"><div><p class="feed-eyebrow">情感倾向</p><h2>情感分析结果</h2></div></div><div id="sentimentChart" class="bar-chart"></div></section>
+          <section class="feed-panel"><div class="feed-head"><div><p class="feed-eyebrow">风险类型</p><h2>风险分类分布</h2></div></div><div id="riskTypeChart" class="donut-chart"></div></section>
+          <section class="feed-panel"><div class="feed-head"><div><p class="feed-eyebrow">情感倾向</p><h2>情感分析结果</h2></div></div><div id="sentimentChart" class="donut-chart"></div></section>
         </div>
         <section class="feed-panel">
           <div class="feed-head"><div><p class="feed-eyebrow">中高风险内容</p><h2>风险原因与处置建议</h2></div><span id="riskMeta">未加载</span></div>
@@ -237,47 +272,78 @@
         </section>
       </section>
 
-      <section id="profileView" class="view-panel">
-        <div class="dashboard-grid profile-grid">
-          <section class="feed-panel">
-            <div class="feed-head">
-              <div>
-                <p class="feed-eyebrow">个人资料</p>
-                <h2>修改个人资料</h2>
-              </div>
-              <span id="profileRoleMeta">未登录</span>
+      <section id="profileView" class="view-panel profile-page">
+        <section class="profile-hero feed-panel">
+          <div class="profile-avatar-large" id="profileAvatarLarge">用</div>
+          <div class="profile-hero-main">
+            <div class="profile-title-row">
+              <h2 id="profileHeroName">未登录</h2>
+              <span id="profileRoleMeta" class="mini-badge">用户</span>
+              <span class="mini-badge ok">启用</span>
             </div>
-            <form id="profileForm" class="profile-form">
+            <p id="profileHeroAccount">未登录</p>
+            <div class="profile-stats">
+              <article><span>追踪舆情</span><strong id="profileWatchCount">0</strong></article>
+              <article><span>可用平台</span><strong id="profilePlatformCount">0</strong></article>
+              <article><span>注册时间</span><strong id="profileRegisterTime">2026年5月</strong></article>
+            </div>
+          </div>
+        </section>
+        <section class="feed-panel profile-section">
+          <div class="feed-head"><div><p class="feed-eyebrow">资料与头像</p><h2>维护公开展示信息，并保持头像与昵称风格一致。</h2></div></div>
+          <div class="profile-two-col">
+            <article class="profile-soft-card">
+              <div class="profile-avatar-medium" id="profileAvatarMedium">用</div>
+              <h3>资料头像</h3>
+              <p id="profileAvatarHint">当前使用用户名首字作为头像，可上传图片作为个人头像。</p>
+              <input id="profileAvatarInput" type="file" accept="image/*" hidden>
+              <div class="profile-inline-actions"><button id="profileAvatarChooseBtn" type="button">上传图片</button><button id="profileAvatarSaveBtn" class="primary" type="button" disabled>保存</button><button id="profileAvatarDeleteBtn" type="button">删除</button></div>
+            </article>
+            <form id="profileForm" class="profile-soft-card profile-form-card">
+              <h3>编辑个人资料</h3>
               <label>账号<input id="profileUsername" disabled></label>
-              <label>显示名称<input id="profileDisplayName" placeholder="请输入显示名称"></label>
-              <button class="primary" type="submit">保存资料</button>
+              <label>用户名<input id="profileDisplayName" placeholder="输入用户名"></label>
+              <label>联系电话<input id="profilePhone" placeholder="输入联系电话"></label>
+              <label>所属部门<input id="profileDepartment" placeholder="输入所属部门"></label>
+              <button class="primary" type="submit">更新资料</button>
+              <p id="profileMessage" class="form-message"></p>
             </form>
-            <p id="profileMessage" class="form-message"></p>
-          </section>
-          <section class="feed-panel">
-            <div class="feed-head">
-              <div>
-                <p class="feed-eyebrow">账号安全</p>
-                <h2>修改密码</h2>
-              </div>
-            </div>
-            <form id="passwordForm" class="profile-form">
-              <label>原密码<input id="oldPassword" type="password" autocomplete="current-password"></label>
-              <label>新密码<input id="newPassword" type="password" autocomplete="new-password"></label>
-              <label>确认新密码<input id="confirmPassword" type="password" autocomplete="new-password"></label>
-              <button class="primary" type="submit">修改密码</button>
-            </form>
-            <p id="passwordMessage" class="form-message"></p>
-          </section>
-        </div>
+          </div>
+        </section>
+        <section class="feed-panel profile-section">
+          <div class="feed-head"><div><p class="feed-eyebrow">登录方式绑定</p><h2>查看当前绑定状态，并将更多第三方登录方式关联到这个账号。</h2></div></div>
+          <div class="binding-list">
+            <article><span class="binding-icon mail">✉</span><div><h3>邮箱 <em class="mini-badge">未绑定</em></h3><p id="profileEmailBind">当前未绑定邮箱</p><small>功能暂未开放，后续版本将支持邮箱绑定与管理。</small></div><button type="button" disabled>暂未开放</button></article>
+            <article><span class="binding-icon linux">L</span><div><h3>LinuxDo <em class="mini-badge">未绑定</em></h3><p>当前未绑定 LinuxDo 账号</p><small>功能暂未开放，后续版本将支持第三方账号绑定。</small></div><button type="button" disabled>暂未开放</button></article>
+            <article><span class="binding-icon oidc">O</span><div><h3>OIDC <em class="mini-badge">未绑定</em></h3><p>当前未绑定 OIDC 账号</p><small>功能暂未开放，后续版本将支持统一身份认证接入。</small></div><button type="button" disabled>暂未开放</button></article>
+            <article><span class="binding-icon wechat">W</span><div><h3>微信 <em class="mini-badge">未绑定</em></h3><p>当前未绑定微信账号</p><small>功能暂未开放，后续版本将支持微信账号绑定。</small></div><button type="button" disabled>暂未开放</button></article>
+          </div>
+        </section>
+        <section class="profile-contact-card">
+          <span class="binding-icon service">☏</span><div><h3>联系客服</h3><p>微：xyu_hit</p></div>
+        </section>
+        <section class="feed-panel profile-security-card">
+          <div class="feed-head"><div><p class="feed-eyebrow">账号安全</p><h2>修改密码</h2></div></div>
+          <form id="passwordForm" class="profile-form security-form">
+            <label>当前密码<input id="oldPassword" type="password" autocomplete="current-password"></label>
+            <label>新密码<input id="newPassword" type="password" autocomplete="new-password"><span>密码至少需要 8 个字符</span></label>
+            <label>确认新密码<input id="confirmPassword" type="password" autocomplete="new-password"></label>
+            <button class="primary" type="submit">修改密码</button>
+          </form>
+          <p id="passwordMessage" class="form-message"></p>
+        </section>
+        <section class="feed-panel profile-2fa-card">
+          <div class="feed-head"><div><p class="feed-eyebrow">双因素认证 (2FA)</p><h2>使用 Google Authenticator 等应用增强账户安全</h2></div></div>
+          <div class="profile-empty-state"><span>△</span><div><h3>功能未开放</h3><p>管理员尚未开放双因素认证功能</p></div></div>
+        </section>
       </section>
 
       <section id="admin-platformsView" class="view-panel admin-view">
         <section class="settings-panel">
-          <div class="settings-head"><div><p class="feed-eyebrow">平台管理</p><h2>采集平台与接入配置</h2></div><button id="saveSettingsBtn" class="primary" type="button">保存设置</button></div>
-          <section class="settings-block"><div class="settings-block-head"><h3>前台采集申请</h3><span>只展示待处理摘要，点击查看详情后进入独立页面处理</span></div><div id="sourceApplicationsPanel" class="settings-list"></div></section>
+          <div class="settings-head"><div><p class="feed-eyebrow">平台管理</p><h2>采集平台与接入配置</h2></div></div>
+          <section class="settings-block"><div class="settings-block-head"><h3>前台采集申请 <span id="sourceApplicationAlert" class="application-alert is-hidden" title="有待处理申请"><span class="bell-icon"></span><i></i></span></h3><span>只展示待处理摘要，点击查看详情后进入独立页面处理</span></div><div id="sourceApplicationsPanel" class="settings-list"></div></section>
           <section class="settings-block"><div class="settings-block-head"><h3>扩展平台</h3><span>管理员新增平台，前台提交的新平台进入后台审核与配置</span></div><div id="knownPlatformCatalog" class="catalog-grid"></div></section>
-          <section class="settings-block"><div class="settings-block-head"><h3>已有平台配置</h3><span id="settingsStatusText">正在加载配置</span></div><div class="settings-switcher"><label for="platformSettingsSelect">当前查看</label><select id="platformSettingsSelect"></select></div><div id="platformSettingsList" class="settings-list"></div></section>
+          <section class="settings-block"><div class="settings-block-head"><div><h3>已有平台配置</h3><span id="settingsStatusText">正在加载配置</span></div><button id="saveSettingsBtn" class="primary settings-save-btn" type="button" disabled>保存设置</button></div><div class="settings-switcher"><label for="platformSettingsSelect">当前查看</label><select id="platformSettingsSelect"></select></div><div id="platformSettingsList" class="settings-list"></div></section>
         </section>
       </section>
 
@@ -296,8 +362,8 @@
             <p id="lastError" class="error-text"></p>
           </div>
         </section>
-        <section class="feed-panel"><div class="feed-head"><div><p class="feed-eyebrow">采集规则配置</p><h2>平台适配与爬虫策略</h2></div></div><div id="ruleCards" class="crawl-rule-stack"></div></section>
         <section class="feed-panel"><div class="feed-head"><div><p class="feed-eyebrow">执行结果</p><h2>任务状态与统计</h2></div></div><div id="taskSummaryList" class="component-status-list"></div></section>
+        <section class="feed-panel"><div class="feed-head"><div><p class="feed-eyebrow">采集规则配置</p><h2>平台适配与爬虫策略</h2></div></div><div id="ruleCards" class="crawl-rule-stack"></div></section>
       </section>
 
       <section id="admin-modelsView" class="view-panel admin-view">
@@ -305,8 +371,50 @@
       </section>
 
       <section id="admin-logsView" class="view-panel admin-view">
-        <section class="feed-panel"><div class="feed-head"><div><p class="feed-eyebrow">运行日志</p><h2>采集与分析实时控制台</h2></div><span id="logsMeta">等待任务启动</span></div><pre id="logsPanel" class="logs logs-page">等待爬取任务启动...</pre></section>
+        <section class="feed-panel"><div class="feed-head"><div><p class="feed-eyebrow">运行日志</p><h2>采集与分析实时控制台</h2></div><div class="log-toolbar"><span id="logsMeta">等待任务启动</span><select id="logHistorySelect"><option value="current">当前控制台</option></select></div></div><div class="logs-console"><pre id="logsPanel" class="logs logs-page">等待爬取任务启动...</pre><div class="logs-console-actions"><button id="runDiagnosticsBtn" type="button">爬虫自检</button><button id="clearLogsBtn" type="button">clear</button></div></div></section>
       </section>
+
+      <section id="admin-databaseView" class="view-panel admin-view">
+        <section class="database-workbench">
+          <aside class="database-sidebar">
+            <div class="database-brand">
+              <strong>MongoDB 管理</strong>
+              <button id="dbRefreshBtn" type="button">刷新</button>
+            </div>
+            <input id="dbTreeSearch" class="database-search" placeholder="搜索库或集合">
+            <div id="databaseTree" class="database-tree"></div>
+          </aside>
+          <section class="database-main">
+            <div class="database-toolbar">
+              <div>
+                <p class="feed-eyebrow">数据库查询</p>
+                <h2 id="databaseTitle">选择数据库或集合</h2>
+                <span id="databaseMeta">管理员可执行集合浏览、查询、新增、编辑、删除和索引查看</span>
+              </div>
+            </div>
+            <div id="databaseCollectionsPanel" class="database-panel"></div>
+            <div id="databaseDocumentsPanel" class="database-panel"></div>
+          </section>
+        </section>
+      </section>
+
+      <div id="dbModal" class="modal-backdrop is-hidden">
+        <div class="db-modal">
+          <div class="database-editor-head">
+            <div>
+              <p class="feed-eyebrow">JSON 数据</p>
+              <h3 id="dbEditorTitle">新增文档</h3>
+            </div>
+            <button id="dbModalCloseBtn" type="button">关闭</button>
+          </div>
+          <textarea id="dbDocumentEditor" spellcheck="false" placeholder="{&#10;  &quot;field&quot;: &quot;value&quot;&#10;}"></textarea>
+          <div class="database-editor-actions">
+            <button id="dbSaveDocumentBtn" class="primary" type="button">插入文档</button>
+            <button id="dbClearEditorBtn" type="button">清空</button>
+          </div>
+          <p id="dbEditorMessage" class="form-message"></p>
+        </div>
+      </div>
 
       <section id="admin-usersView" class="view-panel admin-view">
         <section class="feed-panel">
@@ -334,7 +442,7 @@
         <section class="feed-panel">
           <div class="feed-head">
             <div><p class="feed-eyebrow">系统设置</p><h2>运行参数与分析配置</h2></div>
-            <div class="list-control"><span id="systemSettingsMeta">未加载</span><button id="saveSystemSettingsBtn" class="primary" type="button">保存设置</button></div>
+            <div class="list-control"><span id="systemSettingsMeta">未加载</span></div>
           </div>
           <div id="systemSettings" class="system-settings-grid"></div>
         </section>

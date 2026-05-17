@@ -1,19 +1,30 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 import copy
+import asyncio
 import importlib.util
 import json
 import os
 import sys
 import threading
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError
+from datetime import datetime, timedelta
 from pathlib import Path
 from urllib.parse import quote, unquote
 from uuid import uuid4
 
+_BASE_DIR_FOR_ENCODING = Path(__file__).resolve().parents[1]
+if str(_BASE_DIR_FOR_ENCODING) not in sys.path:
+    sys.path.insert(0, str(_BASE_DIR_FOR_ENCODING))
+from encoding_guard import install_encoding_guard  # noqa: E402
+
+install_encoding_guard()
+
 import requests
 from flask import Flask, jsonify, request, send_file, send_from_directory
 from bson import ObjectId
+from bson.binary import Binary
+from bson.decimal128 import Decimal128
+from bson.timestamp import Timestamp
 from pymongo import DESCENDING, MongoClient
 from pymongo.errors import DuplicateKeyError, OperationFailure
 from werkzeug.utils import secure_filename
@@ -28,6 +39,7 @@ COLLECTION_SOURCES_FILE = BASE_DIR / "backend" / "collection_sources.json"
 USERS_FILE = BASE_DIR / "backend" / "users.json"
 USER_ACTIVITY_FILE = BASE_DIR / "backend" / "user_activity.json"
 RUNTIME_CONFIG_FILE = BASE_DIR / "backend" / "runtime_config.json"
+CRAWL_LOG_HISTORY_FILE = BASE_DIR / "backend" / "crawl_log_history.json"
 CRAWLER_DIR = BASE_DIR / "crawler"
 CRAWLERS_DIR = BASE_DIR / "crawlers"
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
@@ -40,6 +52,7 @@ LOAD_WORD_VECTOR_MODEL = (
 STRICT_RUNTIME_ENV = os.getenv("STRICT_RUNTIME", "0")
 STRICT_RUNTIME = STRICT_RUNTIME_ENV.strip().lower() in {"1", "true", "yes", "on"}
 CRAWL_TOTAL_TARGET = max(1, int(os.getenv("CRAWL_TOTAL_TARGET", "200")))
+DIAGNOSTIC_TIMEOUT_SECONDS = max(3, int(os.getenv("DIAGNOSTIC_TIMEOUT_SECONDS", "20")))
 
 KNOWN_EXTRA_PLATFORMS = {
     "bilibili": {"label": "Bilibili", "description": "视频社区，待接入爬虫"},
@@ -57,6 +70,7 @@ for path in (BASE_DIR, CRAWLER_DIR, CRAWLERS_DIR):
 import setting  # noqa: E402
 from crawlers.runner import (  # noqa: E402
     PLATFORMS,
+    _IMPORT_LOCK,
     crawler_import_context,
     load_module,
     normalize_platforms,
@@ -76,6 +90,7 @@ _runtime_ready = False
 _platform_defaults_cache = {}
 _startup_analysis_started = False
 _startup_analysis_lock = threading.Lock()
+_runtime_init_attempted = False
 
 
 def _read_text_lines(value):
@@ -105,12 +120,25 @@ def _safe_bool(value, default=False):
     return str(value).strip().lower() in {"1", "true", "yes", "on"}
 
 
+@app.before_request
+def ensure_runtime_started():
+    global _runtime_init_attempted
+    if _runtime_ready or _runtime_init_attempted:
+        return None
+    _runtime_init_attempted = True
+    try:
+        initialize_runtime()
+    except Exception as exc:
+        print(f"[runtime] lazy initialize failed: {exc}")
+    return None
+
+
 def load_runtime_config():
     defaults = {
         "analysis_engine_file": "多模态融合分析_API.py",
         "analysis_max_workers": None,
         "auto_analyze_crawled_items": True,
-        "load_word_vector_model": True,
+        "load_word_vector_model": False,
         "strict_runtime": False,
         "crawl_total_target": 200,
         "platform_cookies": {},
@@ -159,7 +187,7 @@ AUTO_ANALYZE_CRAWLED_ITEMS = _safe_bool(
 )
 LOAD_WORD_VECTOR_MODEL = _safe_bool(
     os.getenv("LOAD_WORD_VECTOR_MODEL"),
-    bool(RUNTIME_CONFIG.get("load_word_vector_model", True)),
+    bool(RUNTIME_CONFIG.get("load_word_vector_model", False)),
 )
 STRICT_RUNTIME = _safe_bool(
     os.getenv("STRICT_RUNTIME"),
@@ -214,7 +242,7 @@ def available_engine_files():
 def apply_runtime_config(data, reset_engine=False):
     global RUNTIME_CONFIG, ENGINE_FILE, DEFAULT_ANALYSIS_WORKERS, ANALYSIS_MAX_WORKERS
     global AUTO_ANALYZE_CRAWLED_ITEMS, LOAD_WORD_VECTOR_MODEL, STRICT_RUNTIME, CRAWL_TOTAL_TARGET
-    global _engine, _runtime_ready, _startup_analysis_started
+    global _engine, _runtime_ready, _startup_analysis_started, _runtime_init_attempted
 
     previous_engine_file = ENGINE_FILE
     previous_load_word_vector = LOAD_WORD_VECTOR_MODEL
@@ -225,7 +253,7 @@ def apply_runtime_config(data, reset_engine=False):
     DEFAULT_ANALYSIS_WORKERS = 4 if ENGINE_FILE.name.endswith("_API.py") else 1
     ANALYSIS_MAX_WORKERS = max(1, _safe_int(data.get("analysis_max_workers"), DEFAULT_ANALYSIS_WORKERS, minimum=1, maximum=64))
     AUTO_ANALYZE_CRAWLED_ITEMS = _safe_bool(data.get("auto_analyze_crawled_items"), True)
-    LOAD_WORD_VECTOR_MODEL = _safe_bool(data.get("load_word_vector_model"), True)
+    LOAD_WORD_VECTOR_MODEL = _safe_bool(data.get("load_word_vector_model"), False)
     STRICT_RUNTIME = _safe_bool(data.get("strict_runtime"), False)
     CRAWL_TOTAL_TARGET = _safe_int(data.get("crawl_total_target"), 200, minimum=1, maximum=10000)
 
@@ -240,6 +268,7 @@ def apply_runtime_config(data, reset_engine=False):
             _engine = None
             _runtime_ready = False
             _startup_analysis_started = False
+            _runtime_init_attempted = False
 
 
 def sanitize_runtime_config_payload(payload):
@@ -354,6 +383,7 @@ def load_users_store():
         next_user.setdefault("role", "user")
         next_user.setdefault("phone", "")
         next_user.setdefault("department", "")
+        next_user.setdefault("avatar_url", "")
         next_user.setdefault("enabled", True)
         normalized.append(next_user)
         changed = changed or next_user != user
@@ -379,6 +409,20 @@ def load_user_activity_store():
 
 def save_user_activity_store(items):
     USER_ACTIVITY_FILE.write_text(json.dumps(items[:500], ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def load_crawl_log_history_store():
+    if not CRAWL_LOG_HISTORY_FILE.exists():
+        return []
+    try:
+        data = json.loads(CRAWL_LOG_HISTORY_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+    return data if isinstance(data, list) else []
+
+
+def save_crawl_log_history_store(items):
+    CRAWL_LOG_HISTORY_FILE.write_text(json.dumps(items[:80], ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def log_user_activity(action, detail="", username=None, role=None):
@@ -411,6 +455,7 @@ def public_user(user):
         "display_name": user.get("display_name") or user.get("username", ""),
         "phone": user.get("phone", ""),
         "department": user.get("department", ""),
+        "avatar_url": user.get("avatar_url", ""),
         "enabled": bool(user.get("enabled", True)),
     }
 
@@ -425,6 +470,7 @@ def sanitize_admin_user_payload(payload, existing=None):
         "role": role,
         "phone": str(payload.get("phone") or (existing or {}).get("phone") or "").strip(),
         "department": str(payload.get("department") or (existing or {}).get("department") or "").strip(),
+        "avatar_url": str(payload.get("avatar_url") or payload.get("avatarUrl") or (existing or {}).get("avatar_url") or "").strip(),
         "enabled": _safe_bool(payload.get("enabled"), bool((existing or {}).get("enabled", True))),
         "password": str(payload.get("password") or (existing or {}).get("password") or "").strip(),
     }
@@ -937,7 +983,9 @@ def build_platform_settings_payload():
         defaults = extract_platform_defaults(platform) if platform in PLATFORMS else placeholder_platform_defaults(platform, custom_platforms)
         saved = store.get("platforms", {}).get(platform, {})
         config = sanitize_platform_config(platform, saved, defaults)
-        config["cookie"] = runtime_cookie(platform, config.get("cookie", ""))
+        runtime_override = runtime_cookie(platform, "")
+        config["runtime_cookie_override"] = runtime_override
+        config["effective_cookie"] = runtime_override or config.get("cookie", "")
         settings[platform] = config
 
     options = [
@@ -1095,10 +1143,11 @@ def get_platform_runtime_overrides(platform):
     config = copy.deepcopy(payload["platforms"].get(platform, {}))
     if not config:
         return {}
+    effective_cookie = config.get("effective_cookie") or config.get("cookie", "")
     if platform == "weibo":
         defaults = extract_platform_defaults(platform)
         headers = copy.deepcopy(defaults.get("headers", {}))
-        headers["cookie"] = config.get("cookie", "")
+        headers["cookie"] = effective_cookie
         return {
             "DEFAULT_REQUEST_HEADERS": headers,
             "KEYWORD_LIST": config.get("keywords", []),
@@ -1109,7 +1158,7 @@ def get_platform_runtime_overrides(platform):
         }
     if platform == "douyin":
         return {
-            "DOUYIN_COOKIE": config.get("cookie", ""),
+            "DOUYIN_COOKIE": effective_cookie,
             "KEYWORD_LIST": config.get("keywords", []),
             "DOUYIN_SEARCH_KEYWORD_LIST": config.get("discovery_keywords", []),
             "MAX_PAGES_PER_KEYWORD": config.get("max_pages", 1),
@@ -1124,7 +1173,7 @@ def get_platform_runtime_overrides(platform):
         }
     if platform == "xhs":
         return {
-            "COOKIES": config.get("cookie", ""),
+            "COOKIES": effective_cookie,
             "KEYWORD_LIST": config.get("keywords", []),
             "MAX_PAGES": config.get("max_pages", 5),
             "NOTE_TIME": config.get("note_time", 0),
@@ -1135,6 +1184,10 @@ def get_platform_runtime_overrides(platform):
 
 def configured_platform_options():
     return build_platform_settings_payload()["options"]
+
+
+def configured_integrated_platforms():
+    return [item["id"] for item in configured_platform_options() if item.get("available")]
 
 
 def configured_available_platforms(values=None):
@@ -1219,8 +1272,12 @@ def start_background_analysis_once(limit_per_round=20):
         while True:
             try:
                 processed, errors = analyze_unprocessed_documents(limit=limit_per_round)
-            except Exception:
+            except Exception as exc:
+                print(f"[startup-analysis] failed: {exc}")
                 break
+            if errors:
+                for message in errors[:5]:
+                    print(f"[startup-analysis] item failed: {message}")
             if processed <= 0:
                 break
 
@@ -1277,6 +1334,105 @@ def public_error_message(exc: Exception) -> str:
     if "CUDA" in raw or "torch" in raw:
         return f"本地深度学习模型加载失败: {raw}"
     return raw or "分析失败，请稍后重试。"
+
+
+def bson_to_jsonable(value):
+    if isinstance(value, ObjectId):
+        return str(value)
+    if isinstance(value, Binary):
+        return f"<Binary subtype={value.subtype} length={len(value)}>"
+    if isinstance(value, bytes):
+        return f"<bytes length={len(value)}>"
+    if isinstance(value, Decimal128):
+        return str(value)
+    if isinstance(value, Timestamp):
+        return {"time": value.time, "inc": value.inc}
+    if isinstance(value, datetime):
+        return value.strftime("%Y-%m-%d %H:%M:%S")
+    if isinstance(value, list):
+        return [bson_to_jsonable(item) for item in value]
+    if isinstance(value, tuple):
+        return [bson_to_jsonable(item) for item in value]
+    if isinstance(value, dict):
+        return {str(key): bson_to_jsonable(item) for key, item in value.items()}
+    return value
+
+
+def parse_json_object(value, default=None, field_name="JSON"):
+    if default is None:
+        default = {}
+    if value in (None, ""):
+        return default
+    if isinstance(value, dict):
+        return value
+    try:
+        parsed = json.loads(str(value))
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"{field_name} 格式不正确: {exc.msg}") from exc
+    if not isinstance(parsed, dict):
+        raise ValueError(f"{field_name} 必须是 JSON 对象。")
+    return parsed
+
+
+def parse_object_id(value):
+    try:
+        return ObjectId(str(value))
+    except Exception as exc:
+        raise ValueError("无效的文档 _id。") from exc
+
+
+def normalize_mongo_query(query):
+    if not isinstance(query, dict):
+        return query
+    normalized = {}
+    for key, value in query.items():
+        if key == "_id" and isinstance(value, str) and ObjectId.is_valid(value):
+            normalized[key] = ObjectId(value)
+        elif isinstance(value, dict):
+            normalized[key] = normalize_mongo_query(value)
+        elif isinstance(value, list):
+            normalized[key] = [normalize_mongo_query(item) for item in value]
+        else:
+            normalized[key] = value
+    return normalized
+
+
+def safe_mongo_name(value, field_name):
+    name = str(value or "").strip()
+    if not name:
+        raise ValueError(f"{field_name}不能为空。")
+    if any(char in name for char in ['"', "$", "\x00"]):
+        raise ValueError(f"{field_name}包含非法字符。")
+    return name
+
+
+def ensure_mutable_database(db_name):
+    if db_name in {"admin", "config", "local"}:
+        raise ValueError("系统数据库只允许查看，不允许在本系统中修改。")
+
+
+def collection_stats(db, collection_name):
+    try:
+        stats = db.command("collStats", collection_name)
+    except Exception:
+        stats = {}
+    docs = stats.get("count")
+    if docs is None:
+        docs = db[collection_name].estimated_document_count()
+    size = int(stats.get("storageSize") or stats.get("size") or 0)
+    data_size = int(stats.get("size") or 0)
+    avg_size = int(stats.get("avgObjSize") or 0)
+    index_count = int(stats.get("nindexes") or 0)
+    index_size = int(stats.get("totalIndexSize") or 0)
+    return {
+        "name": collection_name,
+        "documents": docs,
+        "storage_size": size,
+        "data_size": data_size,
+        "avg_document_size": avg_size,
+        "indexes": index_count,
+        "total_index_size": index_size,
+    }
 
 
 def get_collection():
@@ -1547,6 +1703,8 @@ def analyze_unprocessed_documents(limit=20, log=None):
                     )
                     if log:
                         log(f"多模态分析失败: {message}")
+                    else:
+                        print(f"[analysis-worker] failed: {message}")
         return processed, errors
     finally:
         client.close()
@@ -1613,75 +1771,238 @@ def find_analyzed_item(doc_id):
 
 
 def run_startup_diagnostics(platforms=None):
-    platforms = normalize_platforms(platforms or ["weibo", "xhs"])
+    platforms = normalize_platforms(platforms or configured_integrated_platforms())
+    if not platforms:
+        return []
     results = []
-    for platform in platforms:
-        if platform == "weibo":
-            results.append(run_weibo_diagnostic())
-        elif platform == "xhs":
-            results.append(run_xhs_diagnostic())
-    return results
+    executor = ThreadPoolExecutor(max_workers=min(len(platforms), 8), thread_name_prefix="diagnostic-worker")
+    future_map = {executor.submit(run_single_platform_diagnostic, platform): platform for platform in platforms}
+    try:
+        for future in as_completed(future_map, timeout=DIAGNOSTIC_TIMEOUT_SECONDS):
+            platform = future_map[future]
+            try:
+                results.append(future.result())
+            except Exception as exc:
+                results.append({"platform": platform, "ok": False, "summary": f"error={exc}"})
+    except TimeoutError:
+        pass
+    finally:
+        done_platforms = {future_map[future] for future in future_map if future.done()}
+        for platform in platforms:
+            if platform not in done_platforms:
+                results.append({
+                    "platform": platform,
+                    "ok": False,
+                    "summary": f"diagnostic timeout after {DIAGNOSTIC_TIMEOUT_SECONDS}s",
+                })
+        executor.shutdown(wait=False, cancel_futures=True)
+    order = {platform: index for index, platform in enumerate(platforms)}
+    return sorted(results, key=lambda item: order.get(item.get("platform"), 999))
+
+
+def run_single_platform_diagnostic(platform):
+    if platform == "weibo":
+        return run_weibo_diagnostic()
+    if platform == "douyin":
+        return run_douyin_diagnostic()
+    if platform == "tieba":
+        return run_tieba_diagnostic()
+    if platform == "xhs":
+        return run_xhs_diagnostic()
+    return {"platform": platform, "ok": False, "summary": "diagnostic not implemented"}
 
 
 def run_weibo_diagnostic():
     info = PLATFORMS["weibo"]
-    with crawler_import_context(info["dir"]):
-        setting_module = load_module("setting", info["dir"] / "setting.py")
-        for key, value in get_platform_runtime_overrides("weibo").items():
-            setattr(setting_module, key, value)
-        scrpy_module = load_module("diagnostic_weibo_scrpy", info["dir"] / info["entry"])
+    with _IMPORT_LOCK:
+        setting_overrides = get_platform_runtime_overrides("weibo")
+        with crawler_import_context(info["dir"]):
+            setting_module = load_module("setting", info["dir"] / "setting.py")
+            for key, value in setting_overrides.items():
+                setattr(setting_module, key, value)
+            scrpy_module = load_module("diagnostic_weibo_scrpy", info["dir"] / info["entry"])
 
-        crawl_source = getattr(setting_module, "CRAWL_KEYWORD_LIST", []) or setting_module.KEYWORD_LIST
-        plain_keywords = scrpy_module.read_plain_keywords(crawl_source)
-        encoded_keywords = scrpy_module.read_keywords(crawl_source)
-        if not encoded_keywords:
-            return {
-                "platform": "weibo",
-                "ok": False,
-                "summary": "no keywords configured",
+            crawl_source = getattr(setting_module, "CRAWL_KEYWORD_LIST", []) or setting_module.KEYWORD_LIST
+            plain_keywords = scrpy_module.read_plain_keywords(crawl_source)
+            encoded_keywords = scrpy_module.read_keywords(crawl_source)
+            if not encoded_keywords:
+                return {
+                    "platform": "weibo",
+                    "ok": False,
+                    "summary": "no keywords configured",
+                }
+
+            keyword = plain_keywords[0] if plain_keywords else ""
+            encoded_keyword = encoded_keywords[0]
+            start_date, end_date = scrpy_module.get_date_range()
+            start_scope = start_date + "-0"
+            end_scope = (datetime.strptime(end_date, "%Y-%m-%d").date() + timedelta(days=1)).strftime("%Y-%m-%d-0")
+            region_code = getattr(setting_module, "REGION_CODE", "")
+            region = f"&region=custom:{region_code}:1000" if region_code else ""
+            url = (
+                f"{scrpy_module.BASE_URL}/weibo?q={encoded_keyword}{region}"
+                f"{scrpy_module.convert_weibo_type(getattr(setting_module, 'WEIBO_TYPE', 0))}"
+                f"{scrpy_module.convert_contain_type(getattr(setting_module, 'CONTAIN_TYPE', 1))}"
+                f"&timescope=custom:{start_scope}:{end_scope}&page=1"
+            )
+            headers = dict(setting_module.DEFAULT_REQUEST_HEADERS)
+            trust_env = bool(getattr(setting_module, "TRUST_ENV_PROXY", False))
+            timeout = getattr(setting_module, "REQUEST_TIMEOUT", 15)
+            days = int(getattr(setting_module, "RECENT_DAYS", 60) or 60)
+
+    session = requests.Session()
+    session.trust_env = trust_env
+    session.headers.update(headers)
+    try:
+        response = session.get(url, timeout=timeout)
+        response.raise_for_status()
+        page_text = response.text
+        items = list(scrpy_module.parse_weibos(page_text, encoded_keyword))
+        summary = scrpy_module.summarize_search_page(page_text)
+        return {
+            "platform": "weibo",
+            "ok": bool(items),
+            "summary": f"keyword={keyword or '-'}; days={days}; parsed={len(items)}; {summary}",
+        }
+    except Exception as exc:
+        return {
+            "platform": "weibo",
+            "ok": False,
+            "summary": f"keyword={keyword or '-'}; error={exc}",
+        }
+
+
+def run_douyin_diagnostic():
+    info = PLATFORMS["douyin"]
+    with _IMPORT_LOCK:
+        setting_overrides = get_platform_runtime_overrides("douyin")
+        with crawler_import_context(info["dir"]):
+            setting_module = load_module("setting", info["dir"] / "setting.py")
+            for key, value in setting_overrides.items():
+                setattr(setting_module, key, value)
+            scrpy_module = load_module("diagnostic_douyin_scrpy", info["dir"] / info["entry"])
+
+            keywords = scrpy_module.read_plain_list(
+                getattr(setting_module, "DOUYIN_SEARCH_KEYWORD_LIST", []) or getattr(setting_module, "KEYWORD_LIST", [])
+            )
+            keyword = str(keywords[0]).strip() if keywords else ""
+            if not keyword:
+                return {
+                    "platform": "douyin",
+                    "ok": False,
+                    "summary": "no keywords configured",
+                }
+
+            search_api = scrpy_module.SEARCH_API
+            headers = dict(setting_module.DEFAULT_REQUEST_HEADERS)
+            cookie = scrpy_module.clean_text(getattr(setting_module, "DOUYIN_COOKIE", ""))
+            if cookie:
+                headers["Cookie"] = cookie
+            trust_env = bool(getattr(setting_module, "TRUST_ENV_PROXY", False))
+            timeout = getattr(setting_module, "REQUEST_TIMEOUT", 15)
+            count = int(getattr(setting_module, "SEARCH_COUNT", 20))
+            params = {
+                "device_platform": "webapp",
+                "aid": "6383",
+                "channel": "channel_pc_web",
+                "search_channel": "aweme_general",
+                "keyword": keyword,
+                "search_source": "normal_search",
+                "query_correct_type": "1",
+                "is_filter_search": "1",
+                "filter_selected": scrpy_module.build_search_filter(),
+                "sort_type": str(getattr(setting_module, "SORT_TYPE", "0")),
+                "publish_time": str(getattr(setting_module, "PUBLISH_TIME", "0")),
+                "filter_duration": str(getattr(setting_module, "FILTER_DURATION", "0")),
+                "content_type": str(getattr(setting_module, "CONTENT_TYPE", "2")),
+                "offset": "0",
+                "count": str(count),
             }
 
-        keyword = plain_keywords[0] if plain_keywords else ""
-        encoded_keyword = encoded_keywords[0]
-        start_date, end_date = scrpy_module.get_date_range()
-        url = scrpy_module.build_url(encoded_keyword, 1, start_date, end_date)
-        session = requests.Session()
-        session.trust_env = bool(getattr(setting_module, "TRUST_ENV_PROXY", False))
-        session.headers.update(setting_module.DEFAULT_REQUEST_HEADERS)
+    session = requests.Session()
+    session.trust_env = trust_env
+    session.headers.update(headers)
+    try:
+        response = session.get(search_api, params=params, timeout=timeout)
+        response.raise_for_status()
+        data = response.json()
+        nil_info = data.get("search_nil_info") or {}
+        nil_type = nil_info.get("search_nil_type") or nil_info.get("search_nil_item")
+        if nil_type == "verify_check":
+            ua = headers.get("User-Agent", "")
+            raise RuntimeError(f"verify_check: Cookie 可能已被风控或与 User-Agent/浏览器指纹不匹配; ua={ua}")
+        if data.get("status_code") not in (None, 0):
+            raise RuntimeError(f"{data.get('status_code')} {data.get('status_msg') or data.get('message')}")
+        awemes = scrpy_module.unique_awemes(scrpy_module.find_aweme_dicts(data.get("data") or data))
+        has_more = bool(data.get("has_more") or data.get("hasMore"))
+        next_cursor = int(data.get("cursor") or count)
+        return {
+            "platform": "douyin",
+            "ok": bool(awemes),
+            "summary": f"keyword={keyword}; items={len(awemes)}; has_more={has_more}; next_cursor={next_cursor}",
+        }
+    except Exception as exc:
+        return {
+            "platform": "douyin",
+            "ok": False,
+            "summary": f"keyword={keyword}; error={exc}",
+        }
+
+
+def run_tieba_diagnostic():
+    info = PLATFORMS["tieba"]
+    with _IMPORT_LOCK:
+        with crawler_import_context(info["dir"]):
+            setting_module = load_module("setting", info["dir"] / "setting.py")
+            for key, value in get_platform_runtime_overrides("tieba").items():
+                setattr(setting_module, key, value)
+            scrpy_module = load_module("diagnostic_tieba_scrpy", info["dir"] / info["entry"])
+
+            forums = scrpy_module.read_plain_keywords(getattr(setting_module, "FORUM_LIST", []))
+            forum = str(forums[0]).strip() if forums else ""
+            if not forum:
+                return {
+                    "platform": "tieba",
+                    "ok": False,
+                    "summary": "no forums configured",
+                }
+
+        async def probe():
+            async with scrpy_module.tb.Client() as client:
+                return await scrpy_module.fetch_forum_page(client, forum, 1)
+
         try:
-            page_text = scrpy_module.fetch(session, url)
-            items = list(scrpy_module.parse_weibos(page_text, encoded_keyword))
-            summary = scrpy_module.summarize_search_page(page_text)
-            days = int(getattr(setting_module, "RECENT_DAYS", 60) or 60)
+            threads = asyncio.run(probe())
             return {
-                "platform": "weibo",
-                "ok": bool(items),
-                "summary": f"keyword={keyword or '-'}; days={days}; parsed={len(items)}; {summary}",
+                "platform": "tieba",
+                "ok": bool(threads),
+                "summary": f"forum={forum}; page=1; threads={len(threads)}",
             }
         except Exception as exc:
             return {
-                "platform": "weibo",
+                "platform": "tieba",
                 "ok": False,
-                "summary": f"keyword={keyword or '-'}; error={exc}",
+                "summary": f"forum={forum}; error={exc}",
             }
 
 
 def run_xhs_diagnostic():
     info = PLATFORMS["xhs"]
-    with crawler_import_context(info["dir"]):
-        setting_module = load_module("setting", info["dir"] / "setting.py")
-        for key, value in get_platform_runtime_overrides("xhs").items():
-            setattr(setting_module, key, value)
-        main_module = load_module("diagnostic_xhs_main", info["dir"] / info["entry"])
+    with _IMPORT_LOCK:
+        with crawler_import_context(info["dir"]):
+            setting_module = load_module("setting", info["dir"] / "setting.py")
+            for key, value in get_platform_runtime_overrides("xhs").items():
+                setattr(setting_module, key, value)
+            main_module = load_module("diagnostic_xhs_main", info["dir"] / info["entry"])
 
-        keywords = getattr(setting_module, "KEYWORD_LIST", []) or []
-        keyword = str(keywords[0]).strip() if keywords else ""
-        if not keyword:
-            return {
-                "platform": "xhs",
-                "ok": False,
-                "summary": "no keywords configured",
-            }
+            keywords = getattr(setting_module, "KEYWORD_LIST", []) or []
+            keyword = str(keywords[0]).strip() if keywords else ""
+            if not keyword:
+                return {
+                    "platform": "xhs",
+                    "ok": False,
+                    "summary": "no keywords configured",
+                }
 
         try:
             api = main_module.XHS_Apis()
@@ -1735,6 +2056,12 @@ class WebCrawlController:
             self.paused = False
             self._condition.notify_all()
 
+    def stop(self):
+        with self._condition:
+            self.stopped = True
+            self.paused = False
+            self._condition.notify_all()
+
 
 class CrawlTask:
     def __init__(self):
@@ -1750,6 +2077,8 @@ class CrawlTask:
         self.platform_item_limit = CRAWL_TOTAL_TARGET
         self.current_platform = ""
         self.platform_results = {}
+        self.login_diagnostic_thread = None
+        self.login_diagnostic_running = False
 
     def add_log(self, message):
         line = f"{datetime.now().strftime('%H:%M:%S')} {message}"
@@ -1757,11 +2086,94 @@ class CrawlTask:
             self.logs.append(line)
             self.logs = self.logs[-160:]
 
+    def archive_logs(self, event):
+        with self.lock:
+            snapshot = list(self.logs)
+            selected_platforms = list(self.selected_platforms)
+            stats = dict(self.current_stats)
+            running = self.running
+        if not snapshot:
+            return
+        label_map = {
+            "start": "任务启动",
+            "resume": "继续采集",
+            "pause": "任务暂停",
+            "finish": "任务结束",
+            "clear": "清空前快照",
+        }
+        items = load_crawl_log_history_store()
+        items.insert(0, {
+            "id": uuid4().hex,
+            "event": event,
+            "event_label": label_map.get(event, event),
+            "saved_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "running": running,
+            "selected_platforms": selected_platforms,
+            "stats": stats,
+            "logs": snapshot,
+        })
+        save_crawl_log_history_store(items)
+
+    def start_login_diagnostics(self, username="", source="login"):
+        with self.lock:
+            paused = bool(self.controller and self.controller.paused)
+            if self.running and not paused:
+                self.add_log("已有采集任务运行，跳过本次爬虫自检。")
+                return "skipped_running"
+            if self.login_diagnostic_running:
+                self.add_log("爬虫自检已在进行中。")
+                return "already_running"
+            self.login_diagnostic_running = True
+
+        def worker():
+            try:
+                platforms = configured_integrated_platforms()
+                label_text = "、".join(platform_label(platform) for platform in platforms) or "无"
+                prefix = "登录后平台自检" if source == "login" else "手动爬虫自检"
+                self.add_log(f"{prefix}开始，账号 {username or '未知'}，检测平台：{label_text}。")
+                results = run_startup_diagnostics(platforms)
+                if not results:
+                    self.add_log(f"{prefix}完成：暂无已实现自检的平台。")
+                    return
+                for diagnostic in results:
+                    label = platform_label(diagnostic.get("platform"))
+                    status = "通过" if diagnostic.get("ok") else "失败"
+                    self.add_log(f"[{label}{'登录自检' if source == 'login' else '手动自检'}] {status}: {diagnostic.get('summary', '')}")
+                self.add_log(f"{prefix}完成。")
+            except Exception as exc:
+                self.add_log(f"爬虫自检异常: {exc}")
+            finally:
+                with self.lock:
+                    self.login_diagnostic_running = False
+
+        self.login_diagnostic_thread = threading.Thread(target=worker, name="login-diagnostic-worker", daemon=True)
+        self.login_diagnostic_thread.start()
+        return "started"
+
     def start_or_resume(self, selected_platforms=None):
         with self.lock:
             if self.running and self.controller:
+                if self.controller.paused and selected_platforms is not None:
+                    requested_platforms = configured_available_platforms(selected_platforms)
+                    if set(requested_platforms) != set(self.selected_platforms):
+                        old_thread = self.thread
+                        self.controller.stop()
+                        self.controller.resume()
+                        previous_platforms = list(self.selected_platforms)
+                        self.add_log(
+                            "检测到继续采集的平台选择已变化，正在结束旧任务并准备按新平台重新启动："
+                            f"{'、'.join(platform_label(item) for item in previous_platforms)} -> "
+                            f"{'、'.join(platform_label(item) for item in requested_platforms)}。"
+                        )
+                        threading.Thread(
+                            target=self._restart_after_platform_change,
+                            args=(old_thread, requested_platforms),
+                            daemon=True,
+                        ).start()
+                        return "restarting"
                 self.controller.resume()
                 self.add_log("已继续爬取。")
+                self.archive_logs("resume")
                 return "resumed"
             self.selected_platforms = configured_available_platforms(selected_platforms)
             self.platform_item_limit = max(1, (CRAWL_TOTAL_TARGET + len(self.selected_platforms) - 1) // len(self.selected_platforms))
@@ -1773,9 +2185,32 @@ class CrawlTask:
             self.last_result = None
             self.current_stats = {"inserted": 0, "skipped": 0, "unmatched": 0, "discarded": 0}
             self.logs = []
+            self.add_log("已启动新的爬取任务。")
+            self.archive_logs("start")
             self.thread = threading.Thread(target=self._run, daemon=True)
             self.thread.start()
             return "started"
+
+    def _restart_after_platform_change(self, old_thread, requested_platforms):
+        if old_thread and old_thread is not threading.current_thread():
+            old_thread.join()
+        with self.lock:
+            if self.running:
+                self.add_log("旧采集任务仍在运行，暂未启动新的平台组合。")
+                return
+            self.selected_platforms = configured_available_platforms(requested_platforms)
+            self.platform_item_limit = max(1, (CRAWL_TOTAL_TARGET + len(self.selected_platforms) - 1) // len(self.selected_platforms))
+            self.current_platform = ""
+            self.platform_results = {}
+            self.controller = WebCrawlController()
+            self.running = True
+            self.last_error = ""
+            self.last_result = None
+            self.current_stats = {"inserted": 0, "skipped": 0, "unmatched": 0, "discarded": 0}
+            self.add_log(f"已按新的平台选择重新启动采集：{'、'.join(platform_label(item) for item in self.selected_platforms)}。")
+            self.archive_logs("resume")
+            self.thread = threading.Thread(target=self._run, daemon=True)
+            self.thread.start()
 
     def pause(self):
         with self.lock:
@@ -1783,6 +2218,7 @@ class CrawlTask:
                 return False
             self.controller.pause()
             self.add_log("已请求暂停，当前请求处理完后会停住。")
+            self.archive_logs("pause")
             return True
 
     def _run(self):
@@ -1837,6 +2273,7 @@ class CrawlTask:
                 if self.controller:
                     self.controller.resume()
                 self.current_platform = ""
+            self.archive_logs("finish")
 
     def _run_platform_worker(self, platform):
         label = PLATFORMS[platform]["label"]
@@ -1903,6 +2340,11 @@ class CrawlTask:
                 "logs": list(self.logs),
             }
 
+    def clear_logs(self):
+        self.archive_logs("clear")
+        with self.lock:
+            self.logs = []
+
 
 task = CrawlTask()
 
@@ -1925,6 +2367,23 @@ def platform_application_page():
 @app.get("/account-editor")
 def account_editor_page():
     return send_from_directory(FRONTEND_DIR, "account_editor.html")
+
+
+@app.get("/uploads/<path:filename>")
+def uploaded_file(filename):
+    return send_from_directory(UPLOAD_DIR, filename)
+
+
+@app.get("/media/<path:filename>")
+def media_file(filename):
+    path = resolve_media_path(filename)
+    if not path or not path.exists() or not path.is_file():
+        return jsonify({"ok": False, "error": "media file not found"}), 404
+    allowed_roots = [CRAWLER_DIR.resolve(), CRAWLERS_DIR.resolve(), BASE_DIR.resolve()]
+    resolved = path.resolve()
+    if not any(resolved == root or root in resolved.parents for root in allowed_roots):
+        return jsonify({"ok": False, "error": "media path is not allowed"}), 403
+    return send_file(resolved)
 
 
 @app.get("/health")
@@ -1990,6 +2449,32 @@ def pause_crawl():
 @app.get("/api/crawl/status")
 def crawl_status():
     return jsonify(task.status())
+
+
+@app.get("/api/crawl/log-history")
+def crawl_log_history():
+    blocked = require_admin()
+    if blocked:
+        return blocked
+    return jsonify({"ok": True, "items": load_crawl_log_history_store()})
+
+
+@app.post("/api/crawl/logs/clear")
+def clear_crawl_logs():
+    blocked = require_admin()
+    if blocked:
+        return blocked
+    task.clear_logs()
+    return jsonify({"ok": True, "status": task.status()})
+
+
+@app.post("/api/crawl/diagnostics")
+def run_crawl_diagnostics():
+    blocked = require_admin()
+    if blocked:
+        return blocked
+    action = task.start_login_diagnostics(request_user(), source="manual")
+    return jsonify({"ok": True, "action": action, "status": task.status()})
 
 
 @app.get("/api/platform-settings")
@@ -2069,6 +2554,7 @@ def login():
     if role in {"user", "admin"} and user.get("role") != role:
         return jsonify({"ok": False, "error": "账号角色与登录入口不匹配。"}), 403
     log_user_activity("登录系统", "登录成功", username=user.get("username"), role=user.get("role", "user"))
+    task.start_login_diagnostics(user.get("username"))
     return jsonify(
         {
             "ok": True,
@@ -2097,6 +2583,7 @@ def register():
         "display_name": display_name or username,
         "phone": "",
         "department": "",
+        "avatar_url": "",
         "enabled": True,
     }
     users.append(user)
@@ -2114,6 +2601,8 @@ def update_profile():
     username = request_user()
     payload = request.get_json(silent=True) or {}
     display_name = str(payload.get("display_name") or payload.get("displayName") or "").strip()
+    phone = str(payload.get("phone") or "").strip()
+    department = str(payload.get("department") or "").strip()
     if not display_name:
         return jsonify({"ok": False, "error": "显示名称不能为空。"}), 400
     users = load_users_store()
@@ -2121,6 +2610,8 @@ def update_profile():
         if user.get("username") != username:
             continue
         user["display_name"] = display_name
+        user["phone"] = phone
+        user["department"] = department
         save_users_store(users)
         return jsonify(
             {
@@ -2128,6 +2619,38 @@ def update_profile():
                 "user": public_user(user),
             }
         )
+    return jsonify({"ok": False, "error": "当前账号不存在。"}), 404
+
+
+@app.post("/api/account/avatar")
+def upload_account_avatar():
+    username = request_user()
+    image = request.files.get("avatar") or request.files.get("file")
+    try:
+        image_path = save_upload(image)
+    except ValueError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+    avatar_url = f"/uploads/{image_path.name}"
+    users = load_users_store()
+    for user in users:
+        if user.get("username") != username:
+            continue
+        user["avatar_url"] = avatar_url
+        save_users_store(users)
+        return jsonify({"ok": True, "user": public_user(user)})
+    return jsonify({"ok": False, "error": "当前账号不存在。"}), 404
+
+
+@app.delete("/api/account/avatar")
+def delete_account_avatar():
+    username = request_user()
+    users = load_users_store()
+    for user in users:
+        if user.get("username") != username:
+            continue
+        user["avatar_url"] = ""
+        save_users_store(users)
+        return jsonify({"ok": True, "user": public_user(user)})
     return jsonify({"ok": False, "error": "当前账号不存在。"}), 404
 
 
@@ -2439,6 +2962,301 @@ def analyze_unprocessed():
         return jsonify({"ok": False, "processed": 0, "errors": [str(exc)]}), 500
 
 
+@app.get("/api/admin/database/overview")
+def database_overview():
+    blocked = require_admin()
+    if blocked:
+        return blocked
+    client = MongoClient(setting.MONGO_URI, serverSelectionTimeoutMS=3000)
+    try:
+        databases = []
+        for name in client.list_database_names():
+            db = client[name]
+            collections = []
+            for collection_name in db.list_collection_names():
+                collections.append(collection_stats(db, collection_name))
+            databases.append(
+                {
+                    "name": name,
+                    "collections": collections,
+                    "collection_count": len(collections),
+                    "documents": sum(item["documents"] for item in collections),
+                    "storage_size": sum(item["storage_size"] for item in collections),
+                    "data_size": sum(item["data_size"] for item in collections),
+                    "indexes": sum(item["indexes"] for item in collections),
+                    "total_index_size": sum(item["total_index_size"] for item in collections),
+                }
+            )
+        return jsonify({"ok": True, "mongo_uri": getattr(setting, "MONGO_URI", ""), "databases": databases})
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+    finally:
+        client.close()
+
+
+@app.get("/api/admin/database/collections")
+def database_collections():
+    blocked = require_admin()
+    if blocked:
+        return blocked
+    try:
+        db_name = safe_mongo_name(request.args.get("db") or setting.MONGO_DATABASE, "数据库名")
+        client = MongoClient(setting.MONGO_URI, serverSelectionTimeoutMS=3000)
+        db = client[db_name]
+        collections = [collection_stats(db, name) for name in db.list_collection_names()]
+        return jsonify({"ok": True, "db": db_name, "collections": collections})
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+    finally:
+        try:
+            client.close()
+        except Exception:
+            pass
+
+
+@app.post("/api/admin/database/collections")
+def create_database_collection():
+    blocked = require_admin()
+    if blocked:
+        return blocked
+    payload = request.get_json(silent=True) or {}
+    try:
+        db_name = safe_mongo_name(payload.get("db") or setting.MONGO_DATABASE, "数据库名")
+        collection_name = safe_mongo_name(payload.get("collection"), "集合名")
+        ensure_mutable_database(db_name)
+        client = MongoClient(setting.MONGO_URI, serverSelectionTimeoutMS=3000)
+        db = client[db_name]
+        if collection_name in db.list_collection_names():
+            return jsonify({"ok": False, "error": "集合已存在。"}), 409
+        db.create_collection(collection_name)
+        log_user_activity("创建集合", f"{db_name}.{collection_name}")
+        return jsonify({"ok": True, "collection": collection_stats(db, collection_name)})
+    except ValueError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+    finally:
+        try:
+            client.close()
+        except Exception:
+            pass
+
+
+@app.delete("/api/admin/database/collections")
+def drop_database_collection():
+    blocked = require_admin()
+    if blocked:
+        return blocked
+    payload = request.get_json(silent=True) or {}
+    try:
+        db_name = safe_mongo_name(payload.get("db"), "数据库名")
+        collection_name = safe_mongo_name(payload.get("collection"), "集合名")
+        ensure_mutable_database(db_name)
+        client = MongoClient(setting.MONGO_URI, serverSelectionTimeoutMS=3000)
+        client[db_name][collection_name].drop()
+        log_user_activity("删除集合", f"{db_name}.{collection_name}")
+        return jsonify({"ok": True})
+    except ValueError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+    finally:
+        try:
+            client.close()
+        except Exception:
+            pass
+
+
+@app.delete("/api/admin/database/databases")
+def drop_database():
+    blocked = require_admin()
+    if blocked:
+        return blocked
+    payload = request.get_json(silent=True) or {}
+    try:
+        db_name = safe_mongo_name(payload.get("db"), "数据库名")
+        ensure_mutable_database(db_name)
+        client = MongoClient(setting.MONGO_URI, serverSelectionTimeoutMS=3000)
+        client.drop_database(db_name)
+        log_user_activity("删除数据库", db_name)
+        return jsonify({"ok": True})
+    except ValueError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+    finally:
+        try:
+            client.close()
+        except Exception:
+            pass
+
+
+@app.get("/api/admin/database/documents")
+def database_documents():
+    blocked = require_admin()
+    if blocked:
+        return blocked
+    try:
+        db_name = safe_mongo_name(request.args.get("db") or setting.MONGO_DATABASE, "数据库名")
+        collection_name = safe_mongo_name(request.args.get("collection"), "集合名")
+        query = normalize_mongo_query(parse_json_object(request.args.get("filter"), {}, "查询条件"))
+        sort_spec = parse_json_object(request.args.get("sort"), {}, "排序条件")
+        limit = max(1, min(int(request.args.get("limit", 20)), 200))
+        skip = max(0, int(request.args.get("skip", 0)))
+        client = MongoClient(setting.MONGO_URI, serverSelectionTimeoutMS=3000)
+        collection = client[db_name][collection_name]
+        cursor = collection.find(query)
+        if sort_spec:
+            cursor = cursor.sort([(key, int(value)) for key, value in sort_spec.items()])
+        else:
+            cursor = cursor.sort([("_id", DESCENDING)])
+        total = collection.count_documents(query)
+        docs = [bson_to_jsonable(doc) for doc in cursor.skip(skip).limit(limit)]
+        return jsonify({"ok": True, "db": db_name, "collection": collection_name, "total": total, "skip": skip, "limit": limit, "documents": docs})
+    except ValueError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+    finally:
+        try:
+            client.close()
+        except Exception:
+            pass
+
+
+@app.post("/api/admin/database/documents")
+def insert_database_document():
+    blocked = require_admin()
+    if blocked:
+        return blocked
+    payload = request.get_json(silent=True) or {}
+    try:
+        db_name = safe_mongo_name(payload.get("db"), "数据库名")
+        collection_name = safe_mongo_name(payload.get("collection"), "集合名")
+        ensure_mutable_database(db_name)
+        document = parse_json_object(payload.get("document"), {}, "文档内容")
+        document.pop("_id", None)
+        client = MongoClient(setting.MONGO_URI, serverSelectionTimeoutMS=3000)
+        result = client[db_name][collection_name].insert_one(document)
+        log_user_activity("新增数据库文档", f"{db_name}.{collection_name}:{result.inserted_id}")
+        inserted = client[db_name][collection_name].find_one({"_id": result.inserted_id})
+        return jsonify({"ok": True, "document": bson_to_jsonable(inserted)})
+    except ValueError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+    except DuplicateKeyError as exc:
+        return jsonify({"ok": False, "error": f"唯一索引冲突: {exc}"}), 409
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+    finally:
+        try:
+            client.close()
+        except Exception:
+            pass
+
+
+@app.put("/api/admin/database/documents/<doc_id>")
+def update_database_document(doc_id):
+    blocked = require_admin()
+    if blocked:
+        return blocked
+    payload = request.get_json(silent=True) or {}
+    try:
+        db_name = safe_mongo_name(payload.get("db"), "数据库名")
+        collection_name = safe_mongo_name(payload.get("collection"), "集合名")
+        ensure_mutable_database(db_name)
+        document = parse_json_object(payload.get("document"), {}, "文档内容")
+        document.pop("_id", None)
+        object_id = parse_object_id(doc_id)
+        client = MongoClient(setting.MONGO_URI, serverSelectionTimeoutMS=3000)
+        result = client[db_name][collection_name].replace_one({"_id": object_id}, document)
+        if result.matched_count == 0:
+            return jsonify({"ok": False, "error": "文档不存在。"}), 404
+        log_user_activity("修改数据库文档", f"{db_name}.{collection_name}:{doc_id}")
+        updated = client[db_name][collection_name].find_one({"_id": object_id})
+        return jsonify({"ok": True, "document": bson_to_jsonable(updated)})
+    except ValueError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+    except DuplicateKeyError as exc:
+        return jsonify({"ok": False, "error": f"唯一索引冲突: {exc}"}), 409
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+    finally:
+        try:
+            client.close()
+        except Exception:
+            pass
+
+
+@app.delete("/api/admin/database/documents/<doc_id>")
+def delete_database_document(doc_id):
+    blocked = require_admin()
+    if blocked:
+        return blocked
+    payload = request.get_json(silent=True) or {}
+    try:
+        db_name = safe_mongo_name(payload.get("db"), "数据库名")
+        collection_name = safe_mongo_name(payload.get("collection"), "集合名")
+        ensure_mutable_database(db_name)
+        client = MongoClient(setting.MONGO_URI, serverSelectionTimeoutMS=3000)
+        result = client[db_name][collection_name].delete_one({"_id": parse_object_id(doc_id)})
+        log_user_activity("删除数据库文档", f"{db_name}.{collection_name}:{doc_id}")
+        return jsonify({"ok": True, "deleted": result.deleted_count})
+    except ValueError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+    finally:
+        try:
+            client.close()
+        except Exception:
+            pass
+
+
+@app.delete("/api/admin/database/documents")
+def delete_database_documents():
+    blocked = require_admin()
+    if blocked:
+        return blocked
+    payload = request.get_json(silent=True) or {}
+    try:
+        db_name = safe_mongo_name(payload.get("db"), "数据库名")
+        collection_name = safe_mongo_name(payload.get("collection"), "集合名")
+        ensure_mutable_database(db_name)
+        client = MongoClient(setting.MONGO_URI, serverSelectionTimeoutMS=3000)
+        result = client[db_name][collection_name].delete_many({})
+        log_user_activity("清空集合数据", f"{db_name}.{collection_name}: {result.deleted_count}")
+        return jsonify({"ok": True, "deleted": result.deleted_count})
+    except ValueError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+    finally:
+        try:
+            client.close()
+        except Exception:
+            pass
+
+
+@app.get("/api/admin/database/indexes")
+def database_indexes():
+    blocked = require_admin()
+    if blocked:
+        return blocked
+    try:
+        db_name = safe_mongo_name(request.args.get("db"), "数据库名")
+        collection_name = safe_mongo_name(request.args.get("collection"), "集合名")
+        client = MongoClient(setting.MONGO_URI, serverSelectionTimeoutMS=3000)
+        indexes = [bson_to_jsonable(index) for index in client[db_name][collection_name].list_indexes()]
+        return jsonify({"ok": True, "indexes": indexes})
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+    finally:
+        try:
+            client.close()
+        except Exception:
+            pass
+
+
 @app.get("/media/<path:file_path>")
 def serve_media(file_path):
     path = resolve_media_path(unquote(file_path))
@@ -2450,3 +3268,4 @@ def serve_media(file_path):
 if __name__ == "__main__":
     initialize_runtime()
     app.run(host="127.0.0.1", port=5000, debug=False, threaded=True)
+

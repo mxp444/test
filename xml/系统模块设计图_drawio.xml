@@ -1,0 +1,95 @@
+<mxfile host="Electron" agent="ChatGPT">
+  <diagram id="system-module-design" name="Page-1">
+    <mxGraphModel dx="1267" dy="828" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="590" pageHeight="980" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="4" parent="1" style="rounded=1;arcSize=8;strokeWidth=1.5;shadow=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#FFFFFF;fontFamily=宋体;fontSize=14;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontStyle=0;" value="用户 / 浏览器&#xa;普通用户、管理员" vertex="1">
+          <mxGeometry height="56" width="220" x="185" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="5" parent="1" style="rounded=1;arcSize=8;strokeWidth=1.5;shadow=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#FFFFFF;fontFamily=宋体;fontSize=14;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontStyle=0" value="前端页面模块&#xa;监测首页、舆情监测、风险分析、详情报告、后台页面" vertex="1">
+          <mxGeometry height="66" width="400" x="95" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="6" parent="1" style="rounded=1;arcSize=8;strokeWidth=1.5;shadow=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#FFFFFF;fontFamily=宋体;fontSize=14;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontStyle=0" value="后端接口模块&#xa;Flask：登录权限、数据查询、采集调度、分析调度、平台配置、账号管理、系统设置" vertex="1">
+          <mxGeometry height="74" width="460" x="65" y="250" as="geometry" />
+        </mxCell>
+        <mxCell id="7" parent="1" style="rounded=1;arcSize=8;strokeWidth=1.5;shadow=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#FFFFFF;fontFamily=宋体;fontSize=14;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontStyle=0" value="多元舆情采集模块&#xa;微博、抖音、百度贴吧、小红书&#xa;关键词检索、帖子解析、图片下载、过滤去重" vertex="1">
+          <mxGeometry height="88" width="240" x="40" y="350" as="geometry" />
+        </mxCell>
+        <mxCell id="8" parent="1" style="rounded=1;arcSize=8;strokeWidth=1.5;shadow=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#FFFFFF;fontFamily=宋体;fontSize=14;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontStyle=0;" value="MongoDB 数据库模块&#xa;统一字段结构&#xa;按平台分集合保存舆情数据与分析结果" vertex="1">
+          <mxGeometry height="80" width="240" x="145" y="480" as="geometry" />
+        </mxCell>
+        <mxCell id="9" parent="1" style="rounded=1;arcSize=8;strokeWidth=1.5;shadow=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#FFFFFF;fontFamily=宋体;fontSize=14;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontStyle=0" value="文本风险识别模块&#xa;正文与 OCR 文本分析&#xa;识别金融属性、风险要素、情感倾向、煽动性" vertex="1">
+          <mxGeometry height="88" width="240" x="320" y="350" as="geometry" />
+        </mxCell>
+        <mxCell id="10" parent="1" style="rounded=1;arcSize=8;strokeWidth=1.5;shadow=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#FFFFFF;fontFamily=宋体;fontSize=14;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontStyle=0" value="图像内容检测模块&#xa;二维码检测、模糊度、色彩丰富度&#xa;设计感评估、OCR 文字提取" vertex="1">
+          <mxGeometry height="88" width="240" x="320" y="580" as="geometry" />
+        </mxCell>
+        <mxCell id="11" parent="1" style="rounded=1;arcSize=8;strokeWidth=1.5;shadow=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#FFFFFF;fontFamily=宋体;fontSize=14;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontStyle=0;" value="多模态融合风险评估模块&#xa;融合正文、图片、OCR 文本&#xa;输出风险分、风险等级、风险原因、处置建议" vertex="1">
+          <mxGeometry height="88" width="400" x="95" y="690" as="geometry" />
+        </mxCell>
+        <mxCell id="13" edge="1" parent="1" source="4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=1.5;strokeColor=#000000;fontFamily=宋体;fontSize=14;fontStyle=0" target="5" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="14" edge="1" parent="1" source="5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=1.5;strokeColor=#000000;fontFamily=宋体;fontSize=14;fontStyle=0" target="6" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="15" edge="1" parent="1" source="6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=1.5;strokeColor=#000000;exitX=0.25;exitY=1;entryX=0.5;entryY=0;fontFamily=宋体;fontSize=14;fontStyle=0" target="7" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="17" edge="1" parent="1" source="7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeWidth=1.5;strokeColor=#000000;exitX=0.65;exitY=1;entryX=0.212;entryY=-0.024;fontFamily=宋体;fontSize=14;fontStyle=0;entryDx=0;entryDy=0;entryPerimeter=0;" target="8" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="18" edge="1" parent="1" source="8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeWidth=1.5;strokeColor=#000000;exitX=0.8;exitY=0.15;entryX=0.2;entryY=1;fontFamily=宋体;fontSize=14;fontStyle=0" target="9" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="19" edge="1" parent="1" source="8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeWidth=1.5;strokeColor=#000000;exitX=1;exitY=0.8;fontFamily=宋体;fontSize=14;fontStyle=0;entryX=0.533;entryY=-0.039;entryDx=0;entryDy=0;entryPerimeter=0;" target="10" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="450" y="570" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="20" edge="1" parent="1" source="9" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeWidth=1.5;strokeColor=#000000;exitX=1;exitY=0.5;entryX=1;entryY=0.5;fontFamily=宋体;fontSize=14;entryDx=0;entryDy=0;exitDx=0;exitDy=0;fontStyle=0" target="11" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="610" y="394" />
+              <mxPoint x="610" y="734" />
+            </Array>
+            <mxPoint x="570" y="520" as="sourcePoint" />
+            <mxPoint x="625" y="816" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="22" edge="1" parent="1" source="11" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeWidth=1.2;dashed=1;dashPattern=4 4;strokeColor=#000000;exitX=0.2;exitY=0;entryX=0.5;entryY=1;fontFamily=宋体;fontSize=14;fontStyle=0" target="8" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="23" edge="1" parent="1" source="6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeWidth=1.2;dashed=1;dashPattern=4 4;strokeColor=#000000;exitX=0.5;exitY=1;fontFamily=宋体;fontSize=14;fontStyle=0" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="295" y="480" />
+            </Array>
+            <mxPoint x="295" y="480" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="24" edge="1" parent="1" source="8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeWidth=1.2;dashed=1;dashPattern=4 4;strokeColor=#000000;fontFamily=宋体;fontSize=14;fontStyle=0;entryX=-0.002;entryY=0.557;entryDx=0;entryDy=0;entryPerimeter=0;exitX=0;exitY=0.75;exitDx=0;exitDy=0;" target="5" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="20" y="540" />
+              <mxPoint x="20" y="197" />
+            </Array>
+            <mxPoint x="70" y="540" as="sourcePoint" />
+            <mxPoint x="30" y="180" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="GMQaZFlXCEQRRtog5Wmu-25" edge="1" parent="1" source="10" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeWidth=1.5;strokeColor=#000000;exitX=0.5;exitY=1;entryX=0.863;entryY=-0.009;fontFamily=宋体;fontSize=14;entryDx=0;entryDy=0;exitDx=0;exitDy=0;fontStyle=0;entryPerimeter=0;" target="11" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="440" y="680" />
+              <mxPoint x="440" y="680" />
+            </Array>
+            <mxPoint x="845" y="460" as="sourcePoint" />
+            <mxPoint x="780" y="800" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

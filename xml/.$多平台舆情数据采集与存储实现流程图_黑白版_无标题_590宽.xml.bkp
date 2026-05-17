@@ -1,0 +1,85 @@
+<mxfile host="app.diagrams.net">
+  <diagram id="multi_platform_collection_storage" name="Page-1">
+    <mxGraphModel dx="900" dy="1100" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="590" pageHeight="930" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="a1" value="管理员配置采集任务&lt;br&gt;平台、Cookie、关键词、页数、图片规则" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;fontFamily=宋体;fontSize=15;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="95" y="25" width="400" height="58" as="geometry" />
+        </mxCell>
+        <mxCell id="a2" value="backend/app.py 创建 CrawlTask&lt;br&gt;控制启动、暂停、继续与日志统计" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;fontFamily=宋体;fontSize=15;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="95" y="105" width="400" height="58" as="geometry" />
+        </mxCell>
+        <mxCell id="a3" value="crawlers/runner.py 统一运行器&lt;br&gt;动态加载平台爬虫入口" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;fontFamily=宋体;fontSize=15;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="95" y="185" width="400" height="58" as="geometry" />
+        </mxCell>
+
+        <mxCell id="group1" value="平台爬虫模块" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1;fontFamily=宋体;fontSize=15;fontStyle=1;align=center;verticalAlign=top;spacingTop=8;" vertex="1" parent="1">
+          <mxGeometry x="30" y="280" width="530" height="145" as="geometry" />
+        </mxCell>
+        <mxCell id="p1" value="微博&lt;br&gt;关键词搜索" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;fontFamily=宋体;fontSize=15;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="50" y="330" width="110" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="p2" value="抖音&lt;br&gt;图文作品" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;fontFamily=宋体;fontSize=15;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="175" y="330" width="110" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="p3" value="百度贴吧&lt;br&gt;主题帖" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;fontFamily=宋体;fontSize=15;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="300" y="330" width="110" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="p4" value="小红书&lt;br&gt;图文笔记" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;fontFamily=宋体;fontSize=15;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="425" y="330" width="110" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="b1" value="字段统一与图片保存&lt;br&gt;id、platform、screen_name、text、created_at、pics" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;fontFamily=宋体;fontSize=15;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="95" y="465" width="400" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="b2" value="去重与异常处理&lt;br&gt;seen_ids.txt + id / _key / note_id" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;fontFamily=宋体;fontSize=15;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="95" y="555" width="400" height="58" as="geometry" />
+        </mxCell>
+
+        <mxCell id="group2" value="MongoDB 分平台集合存储" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1;fontFamily=宋体;fontSize=15;fontStyle=1;align=center;verticalAlign=top;spacingTop=8;" vertex="1" parent="1">
+          <mxGeometry x="30" y="655" width="530" height="118" as="geometry" />
+        </mxCell>
+        <mxCell id="m1" value="test_weibo" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;fontFamily=宋体;fontSize=15;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="50" y="705" width="110" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="m2" value="test_douyin" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;fontFamily=宋体;fontSize=15;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="175" y="705" width="110" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="m3" value="test_baidu" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;fontFamily=宋体;fontSize=15;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="300" y="705" width="110" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="m4" value="test_xhs" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;fontFamily=宋体;fontSize=15;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="425" y="705" width="110" height="42" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c1" value="前端数据库管理&lt;br&gt;集合树、data 数量、JSON 查询、分页、Add Data、编辑删除" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;fontFamily=宋体;fontSize=15;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="75" y="815" width="440" height="58" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e1" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=1.5;strokeColor=#000000;fontFamily=宋体;fontSize=15;" edge="1" parent="1" source="a1" target="a2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=1.5;strokeColor=#000000;fontFamily=宋体;fontSize=15;" edge="1" parent="1" source="a2" target="a3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" value="分发任务" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=1.5;strokeColor=#000000;fontFamily=宋体;fontSize=15;" edge="1" parent="1" source="a3" target="p2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" value="统一输出" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=1.5;strokeColor=#000000;fontFamily=宋体;fontSize=15;" edge="1" parent="1" source="p2" target="b1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=1.5;strokeColor=#000000;fontFamily=宋体;fontSize=15;" edge="1" parent="1" source="b1" target="b2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6" value="非重复数据" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=1.5;strokeColor=#000000;fontFamily=宋体;fontSize=15;" edge="1" parent="1" source="b2" target="m2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e7" value="查询维护" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=1.5;strokeColor=#000000;fontFamily=宋体;fontSize=15;" edge="1" parent="1" source="m2" target="c1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

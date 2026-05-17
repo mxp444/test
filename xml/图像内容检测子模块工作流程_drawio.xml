@@ -1,0 +1,102 @@
+<mxfile host="Electron" agent="ChatGPT">
+  <diagram id="image-content-detection-submodule-flow" name="Page-1">
+    <mxGraphModel dx="1267" dy="828" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="590" pageHeight="680" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="3" parent="1" style="rounded=1;arcSize=8;strokeWidth=1.4;shadow=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#FFFFFF;fontFamily=宋体;fontSize=14;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontStyle=0;" value="帖子配图&amp;nbsp;" vertex="1">
+          <mxGeometry height="48" width="130" x="20" y="178" as="geometry" />
+        </mxCell>
+        <mxCell id="4" parent="1" style="rounded=1;arcSize=8;strokeWidth=1.4;shadow=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#FFFFFF;fontFamily=宋体;fontSize=14;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontStyle=0" value="图像读取与预处理&lt;br&gt;读取/解码/尺寸转换&lt;br&gt;颜色空间转换" vertex="1">
+          <mxGeometry height="78" width="130" x="20" y="265" as="geometry" />
+        </mxCell>
+        <mxCell id="5" parent="1" style="rounded=1;arcSize=8;strokeWidth=1.2;dashed=1;dashPattern=6 6;shadow=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=none;fontSize=14;fontFamily=宋体;fontStyle=0" value="" vertex="1">
+          <mxGeometry height="440" width="255" x="180" y="70" as="geometry" />
+        </mxCell>
+        <mxCell id="6" parent="1" style="text;strokeColor=none;fillColor=none;fontFamily=宋体;fontSize=14;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontStyle=0;" value="五类图像检测子模块" vertex="1">
+          <mxGeometry height="24" width="205" x="205" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="7" parent="1" style="rounded=1;arcSize=8;strokeWidth=1.4;shadow=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#FFFFFF;fontFamily=宋体;fontSize=14;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontStyle=0" value="OCR 文字识别&lt;br&gt;启动OCR→提交任务→回调结果&lt;br&gt;输出：文字内容/位置信息" vertex="1">
+          <mxGeometry height="68" width="215" x="200" y="110" as="geometry" />
+        </mxCell>
+        <mxCell id="8" parent="1" style="rounded=1;arcSize=8;strokeWidth=1.4;shadow=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#FFFFFF;fontFamily=宋体;fontSize=14;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontStyle=0" value="二维码检测&lt;br&gt;灰度/滤波/二值化→OpenCV 检测&lt;br&gt;输出：是否存在二维码/内容/位置" vertex="1">
+          <mxGeometry height="68" width="215" x="200" y="190" as="geometry" />
+        </mxCell>
+        <mxCell id="9" parent="1" style="rounded=1;arcSize=8;strokeWidth=1.4;shadow=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#FFFFFF;fontFamily=宋体;fontSize=14;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontStyle=0" value="模糊度检测&lt;br&gt;缩放/灰度化→拉普拉斯边缘&lt;br&gt;输出：边缘强度分数" vertex="1">
+          <mxGeometry height="68" width="215" x="200" y="270" as="geometry" />
+        </mxCell>
+        <mxCell id="10" parent="1" style="rounded=1;arcSize=8;strokeWidth=1.4;shadow=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#FFFFFF;fontFamily=宋体;fontSize=14;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontStyle=0" value="色彩丰富程度评估&lt;br&gt;HSV 转换→色相/亮度/对比度计算&lt;br&gt;输出：综合质量分数" vertex="1">
+          <mxGeometry height="68" width="215" x="200" y="350" as="geometry" />
+        </mxCell>
+        <mxCell id="11" parent="1" style="rounded=1;arcSize=8;strokeWidth=1.4;shadow=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#FFFFFF;fontFamily=宋体;fontSize=14;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontStyle=0" value="设计感评估&lt;br&gt;MobileNet预处理→模型预测&lt;br&gt;输出：美学平均分/标准差" vertex="1">
+          <mxGeometry height="68" width="215" x="200" y="430" as="geometry" />
+        </mxCell>
+        <mxCell id="12" parent="1" style="rounded=1;arcSize=8;strokeWidth=1.4;shadow=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#FFFFFF;fontFamily=宋体;fontSize=14;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontStyle=0;" value="&lt;div&gt;&lt;br&gt;&lt;/div&gt;图像侧风险特征汇总&lt;div&gt;&lt;br&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="60" width="130" x="480" y="250" as="geometry" />
+        </mxCell>
+        <mxCell id="13" parent="1" style="rounded=1;arcSize=8;strokeWidth=1.4;shadow=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#FFFFFF;fontFamily=宋体;fontSize=14;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontStyle=0;" value="输出至&#xa;多模态融合分析" vertex="1">
+          <mxGeometry height="50" width="110" x="490" y="340" as="geometry" />
+        </mxCell>
+        <mxCell id="15" edge="1" parent="1" source="3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=1.4;strokeColor=#000000;exitX=0.5;exitY=1;entryX=0.5;entryY=0;fontSize=14;fontFamily=宋体;fontStyle=0" target="4" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="16" edge="1" parent="1" source="4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=1.2;strokeColor=#000000;exitX=1;exitY=0.5;entryX=0;entryY=0.5;fontSize=14;fontFamily=宋体;fontStyle=0" target="7" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="170" y="304" />
+              <mxPoint x="170" y="144" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="17" edge="1" parent="1" source="7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=1.2;strokeColor=#000000;exitX=1;exitY=0.5;entryX=0;entryY=0.5;fontSize=14;fontFamily=宋体;fontStyle=0" target="12" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="18" edge="1" parent="1" source="4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=1.2;strokeColor=#000000;exitX=1;exitY=0.5;entryX=0;entryY=0.5;fontSize=14;fontFamily=宋体;fontStyle=0" target="8" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="170" y="304" />
+              <mxPoint x="170" y="224" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="19" edge="1" parent="1" source="8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=1.2;strokeColor=#000000;exitX=1;exitY=0.5;entryX=0;entryY=0.5;fontSize=14;fontFamily=宋体;fontStyle=0" target="12" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="20" edge="1" parent="1" source="4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=1.2;strokeColor=#000000;exitX=1;exitY=0.5;entryX=0;entryY=0.5;fontSize=14;fontFamily=宋体;fontStyle=0" target="9" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="21" edge="1" parent="1" source="9" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=1.2;strokeColor=#000000;exitX=1;exitY=0.5;entryX=0;entryY=0.5;fontSize=14;fontFamily=宋体;fontStyle=0" target="12" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="22" edge="1" parent="1" source="4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=1.2;strokeColor=#000000;exitX=1;exitY=0.5;entryX=0;entryY=0.5;fontSize=14;fontFamily=宋体;fontStyle=0" target="10" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="170" y="304" />
+              <mxPoint x="170" y="384" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="23" edge="1" parent="1" source="10" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=1.2;strokeColor=#000000;exitX=1;exitY=0.5;entryX=0;entryY=0.5;fontSize=14;fontFamily=宋体;fontStyle=0" target="12" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="24" edge="1" parent="1" source="4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=1.2;strokeColor=#000000;exitX=1;exitY=0.5;entryX=0;entryY=0.5;fontSize=14;fontFamily=宋体;fontStyle=0" target="11" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="170" y="304" />
+              <mxPoint x="170" y="464" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="25" edge="1" parent="1" source="11" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=1.2;strokeColor=#000000;exitX=1;exitY=0.5;entryX=0;entryY=0.5;fontSize=14;fontFamily=宋体;fontStyle=0" target="12" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="26" edge="1" parent="1" source="12" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=1.4;strokeColor=#000000;exitX=0.5;exitY=1;entryX=0.5;entryY=0;fontSize=14;fontFamily=宋体;fontStyle=0" target="13" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="bBAEUnlZ4BKBEmVk9np7-26" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="" vertex="1">
+          <mxGeometry height="320" width="590" x="20" y="600" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

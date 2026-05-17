@@ -1,0 +1,93 @@
+<mxfile host="Electron">
+  <diagram id="backend_implementation_flow" name="Page-1">
+    <mxGraphModel dx="512" dy="1740" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="590" pageHeight="1020" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="b4SX79blx3MMa0IGC5ak-5" parent="1" style="rounded=1;whiteSpace=wrap;html=1;absoluteArcSize=1;arcSize=14;strokeWidth=2;" value="" vertex="1">
+          <mxGeometry height="810" width="590" x="630" as="geometry" />
+        </mxCell>
+        <mxCell id="n1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#ffffff;strokeColor=#000000;strokeWidth=2;fontFamily=宋体;fontSize=14;align=center;verticalAlign=middle;fontStyle=0" value="Flask 后端启动&lt;br&gt;整合/backend/app.py 初始化服务" vertex="1">
+          <mxGeometry height="58" width="400" x="725" y="75" as="geometry" />
+        </mxCell>
+        <mxCell id="n2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#ffffff;strokeColor=#000000;strokeWidth=2;fontFamily=宋体;fontSize=14;align=center;verticalAlign=middle;fontStyle=0" value="加载运行配置&lt;br&gt;runtime_config / platform_settings / users / collection_sources" vertex="1">
+          <mxGeometry height="64" width="400" x="725" y="155" as="geometry" />
+        </mxCell>
+        <mxCell id="b4SX79blx3MMa0IGC5ak-3" edge="1" parent="1" source="group1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontSize=14;fontFamily=宋体;fontStyle=0" target="n3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="group1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;strokeWidth=1;fontFamily=宋体;fontSize=14;fontStyle=0;align=center;verticalAlign=top;spacingTop=8;" value="后端核心服务层初始化" vertex="1">
+          <mxGeometry height="50" width="210" x="820" y="245" as="geometry" />
+        </mxCell>
+        <mxCell id="n3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#ffffff;strokeColor=#000000;strokeWidth=2;fontFamily=宋体;fontSize=14;align=center;verticalAlign=middle;fontStyle=0" value="文档序列化与字段统一&lt;br&gt;serialize_doc / bson_to_jsonable / pics URL 转换" vertex="1">
+          <mxGeometry height="64" width="400" x="725" y="315" as="geometry" />
+        </mxCell>
+        <mxCell id="group2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;strokeWidth=1;fontFamily=宋体;fontSize=14;fontStyle=0;align=center;verticalAlign=top;spacingTop=8;" value="任务与分析调度" vertex="1">
+          <mxGeometry height="130" width="570" x="640" y="415" as="geometry" />
+        </mxCell>
+        <mxCell id="t1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fillColor=#ffffff;strokeColor=#000000;strokeWidth=2;fontFamily=宋体;fontSize=14;align=center;verticalAlign=middle;fontStyle=0" value="采集任务 CrawlTask&lt;br&gt;平台选择 / 日志 / 统计" vertex="1">
+          <mxGeometry height="72" width="150" x="660" y="455" as="geometry" />
+        </mxCell>
+        <mxCell id="t2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fillColor=#ffffff;strokeColor=#000000;strokeWidth=2;fontFamily=宋体;fontSize=14;align=center;verticalAlign=middle;fontStyle=0" value="爬虫运行器 runner.py&lt;br&gt;动态加载平台爬虫" vertex="1">
+          <mxGeometry height="72" width="150" x="850" y="455" as="geometry" />
+        </mxCell>
+        <mxCell id="b4SX79blx3MMa0IGC5ak-8" edge="1" parent="1" source="t3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="n4">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1115" y="555" />
+              <mxPoint x="925" y="555" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fillColor=#ffffff;strokeColor=#000000;strokeWidth=2;fontFamily=宋体;fontSize=14;align=center;verticalAlign=middle;fontStyle=0" value="多模态分析调度&lt;br&gt;ThreadPoolExecutor 并行处理" vertex="1">
+          <mxGeometry height="72" width="150" x="1040" y="455" as="geometry" />
+        </mxCell>
+        <mxCell id="n4" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#ffffff;strokeColor=#000000;strokeWidth=2;fontFamily=宋体;fontSize=14;align=center;verticalAlign=middle;fontStyle=0" value="分析引擎动态加载&lt;br&gt;analysis_engine_file → MultimodalRiskFusion" vertex="1">
+          <mxGeometry height="58" width="400" x="725" y="575" as="geometry" />
+        </mxCell>
+        <mxCell id="n5" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#ffffff;strokeColor=#000000;strokeWidth=2;fontFamily=宋体;fontSize=14;align=center;verticalAlign=middle;fontStyle=0" value="后台管理接口输出&lt;br&gt;平台管理 / 账号用户 / 系统设置 / 数据库管理" vertex="1">
+          <mxGeometry height="58" width="400" x="725" y="675" as="geometry" />
+        </mxCell>
+        <mxCell id="e1" edge="1" parent="1" source="n1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=2;strokeColor=#000000;fontFamily=宋体;fontSize=14;fontStyle=0" target="n2" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" edge="1" parent="1" source="n2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=2;strokeColor=#000000;fontFamily=宋体;fontSize=14;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontStyle=0" target="group1" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="925" y="309.9999999999998" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e4" edge="1" parent="1" source="n3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=2;strokeColor=#000000;fontFamily=宋体;fontSize=14;fontStyle=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="t3" value="任务控制">
+          <mxGeometry relative="1" x="-0.6404" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="925" y="395" />
+              <mxPoint x="1115" y="395" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e6" edge="1" parent="1" source="n4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=2;strokeColor=#000000;fontFamily=宋体;fontSize=14;fontStyle=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.497;entryY=-0.046;entryDx=0;entryDy=0;entryPerimeter=0;" target="n5" value="管理服务">
+          <mxGeometry relative="1" x="-0.3487" y="1" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="924" y="633" />
+            </Array>
+            <mxPoint x="924" y="654" as="sourcePoint" />
+            <mxPoint x="925" y="675" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="b4SX79blx3MMa0IGC5ak-14" edge="1" parent="1" source="b4SX79blx3MMa0IGC5ak-10" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="n1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="b4SX79blx3MMa0IGC5ak-10" parent="1" style="strokeWidth=2;html=1;shape=mxgraph.flowchart.terminator;whiteSpace=wrap;fontSize=14;fontFamily=宋体;" value="开始" vertex="1">
+          <mxGeometry height="40" width="100" x="875" y="15" as="geometry" />
+        </mxCell>
+        <mxCell id="b4SX79blx3MMa0IGC5ak-12" parent="1" style="strokeWidth=2;html=1;shape=mxgraph.flowchart.terminator;whiteSpace=wrap;fontSize=14;fontFamily=宋体;" value="结束" vertex="1">
+          <mxGeometry height="40" width="100" x="875" y="755" as="geometry" />
+        </mxCell>
+        <mxCell id="b4SX79blx3MMa0IGC5ak-13" edge="1" parent="1" source="n5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;" target="b4SX79blx3MMa0IGC5ak-12">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

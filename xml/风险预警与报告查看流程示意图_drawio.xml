@@ -1,0 +1,28 @@
+<mxfile host="app.diagrams.net" agent="ChatGPT">
+  <diagram id="alert-report-view-flow" name="Page-1">
+    <mxGraphModel dx="1193" dy="775" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="t2kl3TSn70nZH9oQhnDl-42" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=宋体;fontSize=14;fontStyle=0" value="" vertex="1">
+          <mxGeometry height="230" width="590" x="250" y="610" as="geometry" />
+        </mxCell>
+        <mxCell id="18" parent="1" style="text;fontFamily=宋体;fontSize=14;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontStyle=0;" value="前端展示重点" vertex="1">
+          <mxGeometry height="28" width="120" x="477.5" y="620" as="geometry" />
+        </mxCell>
+        <mxCell id="19" parent="1" style="rounded=1;arcSize=10;strokeWidth=1.5;shadow=0;whiteSpace=wrap;html=1;fontFamily=宋体;fontSize=14;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontStyle=0" value="舆情监测页面&#xa;查看风险结果" vertex="1">
+          <mxGeometry height="70" width="220" x="300" y="658" as="geometry" />
+        </mxCell>
+        <mxCell id="20" parent="1" style="rounded=1;arcSize=10;strokeWidth=1.5;shadow=0;whiteSpace=wrap;html=1;fontFamily=宋体;fontSize=14;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontStyle=0" value="详情报告页面&#xa;展示单条舆情数据" vertex="1">
+          <mxGeometry height="70" width="220" x="560" y="658" as="geometry" />
+        </mxCell>
+        <mxCell id="21" parent="1" style="rounded=1;arcSize=10;strokeWidth=1.5;shadow=0;whiteSpace=wrap;html=1;fontFamily=宋体;fontSize=14;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontStyle=0" value="报告主要内容&#xa;帖子原文 / 图片 / 综合风险分 / 风险等级" vertex="1">
+          <mxGeometry height="70" width="220" x="300" y="750" as="geometry" />
+        </mxCell>
+        <mxCell id="22" parent="1" style="rounded=1;arcSize=10;strokeWidth=1.5;shadow=0;whiteSpace=wrap;html=1;fontFamily=宋体;fontSize=14;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontStyle=0" value="风险依据说明&#xa;帮助用户后续研判和处理" vertex="1">
+          <mxGeometry height="70" width="220" x="560" y="750" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

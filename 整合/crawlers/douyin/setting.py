@@ -34,9 +34,9 @@ DEFAULT_REQUEST_HEADERS = {
     "Sec-Fetch-Mode": "cors",
     "Sec-Fetch-Site": "same-origin",
     "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0"
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' 
+        'AppleWebKit/537.36 (KHTML, like Gecko)'
+        'Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0'
     ),
 }
 
@@ -47,8 +47,8 @@ IMAGE_TIMEOUT = 30
 TRUST_ENV_PROXY = False
 
 # 搜索页配置。CONTENT_TYPE=2 对应抖音筛选里的“图文”。
-MAX_PAGES_PER_KEYWORD = 1
-SEARCH_COUNT = 20
+MAX_PAGES_PER_KEYWORD = 3
+SEARCH_COUNT = 30
 SORT_TYPE = "0"  # 0 综合排序，1 最多点赞，2 最新发布
 PUBLISH_TIME = "0"  # 0 不限，1 一天内，7 一周内，180 半年内
 FILTER_DURATION = "0"
@@ -60,7 +60,7 @@ REQUIRE_IMAGES = True
 REQUIRE_TEXT = True
 
 # 关键词过滤。设 REQUIRE_KEYWORD_MATCH=False 可抓到就存。
-REQUIRE_KEYWORD_MATCH = True
+REQUIRE_KEYWORD_MATCH = False
 KEYWORD_LIST = [
     "保本",
     "稳赚",

@@ -1,0 +1,104 @@
+<mxfile host="Electron" agent="ChatGPT">
+  <diagram id="system-architecture" name="Page-1">
+    <mxGraphModel dx="1267" dy="828" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="590" pageHeight="900" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="3" parent="1" style="rounded=1;arcSize=8;strokeWidth=1.5;shadow=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#FFFFFF;fontFamily=宋体;fontSize=14;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontStyle=0;" value="用户 / 浏览器" vertex="1">
+          <mxGeometry height="42" width="180" x="205" y="55" as="geometry" />
+        </mxCell>
+        <mxCell id="4" parent="1" style="rounded=1;arcSize=8;strokeWidth=1.5;shadow=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#FFFFFF;fontSize=14;fontFamily=宋体;fontStyle=0" value="" vertex="1">
+          <mxGeometry height="100" width="490" x="50" y="125" as="geometry" />
+        </mxCell>
+        <mxCell id="5" parent="1" style="text;strokeColor=none;fillColor=none;fontFamily=宋体;fontSize=14;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontStyle=0;" value="前端展示层" vertex="1">
+          <mxGeometry height="24" width="120" x="70" y="135" as="geometry" />
+        </mxCell>
+        <mxCell id="6" parent="1" style="rounded=1;arcSize=8;strokeWidth=1.5;shadow=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#FFFFFF;fontFamily=宋体;fontSize=14;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontStyle=0" value="监测首页  ·  舆情监测  ·  风险分析&#xa;详情报告  ·  个人追踪  ·  后台管理" vertex="1">
+          <mxGeometry height="42" width="420" x="85" y="165" as="geometry" />
+        </mxCell>
+        <mxCell id="7" parent="1" style="rounded=1;arcSize=8;strokeWidth=1.5;shadow=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#FFFFFF;fontSize=14;fontFamily=宋体;fontStyle=0" value="" vertex="1">
+          <mxGeometry height="110" width="490" x="50" y="260" as="geometry" />
+        </mxCell>
+        <mxCell id="8" parent="1" style="text;strokeColor=none;fillColor=none;fontFamily=宋体;fontSize=14;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontStyle=0;" value="后端服务层" vertex="1">
+          <mxGeometry height="24" width="120" x="70" y="265" as="geometry" />
+        </mxCell>
+        <mxCell id="9" parent="1" style="rounded=1;arcSize=8;strokeWidth=1.5;shadow=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#FFFFFF;fontFamily=宋体;fontSize=14;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontStyle=0" value="Flask&#xa;登录认证  ·  权限控制  ·  数据查询&#xa;采集调度  ·  分析调度  ·  系统配置维护" vertex="1">
+          <mxGeometry height="54" width="420" x="85" y="293" as="geometry" />
+        </mxCell>
+        <mxCell id="10" parent="1" style="rounded=1;arcSize=8;strokeWidth=1.5;shadow=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#FFFFFF;fontSize=14;fontFamily=宋体;fontStyle=0" value="" vertex="1">
+          <mxGeometry height="145" width="230" x="50" y="395" as="geometry" />
+        </mxCell>
+        <mxCell id="11" parent="1" style="text;strokeColor=none;fillColor=none;fontFamily=宋体;fontSize=14;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontStyle=0;" value="数据采集层" vertex="1">
+          <mxGeometry height="24" width="110" x="50" y="405" as="geometry" />
+        </mxCell>
+        <mxCell id="12" parent="1" style="rounded=1;arcSize=8;strokeWidth=1.5;shadow=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#FFFFFF;fontFamily=宋体;fontSize=14;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontStyle=0" value="微博  ·  抖音&#xa;百度贴吧  ·  小红书&#xa;统一运行器调度" vertex="1">
+          <mxGeometry height="70" width="180" x="75" y="445" as="geometry" />
+        </mxCell>
+        <mxCell id="13" parent="1" style="rounded=1;arcSize=8;strokeWidth=1.5;shadow=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#FFFFFF;fontSize=14;fontFamily=宋体;fontStyle=0" value="" vertex="1">
+          <mxGeometry height="145" width="230" x="310" y="395" as="geometry" />
+        </mxCell>
+        <mxCell id="14" parent="1" style="text;strokeColor=none;fillColor=none;fontFamily=宋体;fontSize=14;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontStyle=0;" value="多模态分析层" vertex="1">
+          <mxGeometry height="24" width="125" x="415" y="405" as="geometry" />
+        </mxCell>
+        <mxCell id="15" parent="1" style="rounded=1;arcSize=8;strokeWidth=1.5;shadow=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#FFFFFF;fontFamily=宋体;fontSize=14;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontStyle=0" value="正文分析  ·  图片分析&#xa;OCR 文字提取  ·  融合评分&#xa;风险等级 / 原因 / 建议" vertex="1">
+          <mxGeometry height="70" width="180" x="335" y="445" as="geometry" />
+        </mxCell>
+        <mxCell id="16" parent="1" style="rounded=1;arcSize=8;strokeWidth=1.5;shadow=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#FFFFFF;fontSize=14;fontFamily=宋体;fontStyle=0" value="" vertex="1">
+          <mxGeometry height="120" width="490" x="50" y="570" as="geometry" />
+        </mxCell>
+        <mxCell id="17" parent="1" style="text;strokeColor=none;fillColor=none;fontFamily=宋体;fontSize=14;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontStyle=0;" value="数据存储层" vertex="1">
+          <mxGeometry height="24" width="110" x="70" y="580" as="geometry" />
+        </mxCell>
+        <mxCell id="18" parent="1" style="rounded=1;arcSize=8;strokeWidth=1.5;shadow=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=#FFFFFF;fontFamily=宋体;fontSize=14;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontStyle=0" value="MongoDB：舆情数据、分析结果&#xa;JSON：运行配置、平台配置、账号信息、采集源申请、个人追踪记录" vertex="1">
+          <mxGeometry height="46" width="420" x="85" y="618" as="geometry" />
+        </mxCell>
+        <mxCell id="19" parent="1" style="rounded=1;arcSize=8;strokeWidth=1.5;dashed=1;dashPattern=6 6;shadow=0;whiteSpace=wrap;html=1;strokeColor=#000000;fillColor=none;fontFamily=宋体;fontSize=14;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontStyle=0;" value="B / S 架构" vertex="1">
+          <mxGeometry height="42" width="110" x="530" y="55" as="geometry" />
+        </mxCell>
+        <mxCell id="20" edge="1" parent="1" source="3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=1.5;strokeColor=#000000;fontSize=14;fontFamily=宋体;fontStyle=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="4" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+            <mxPoint x="295" y="120" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="22" edge="1" parent="1" source="9" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=1.5;strokeColor=#000000;exitX=0.25;exitY=1;fontSize=14;fontFamily=宋体;fontStyle=0;entryX=0.641;entryY=0.014;entryDx=0;entryDy=0;entryPerimeter=0;" target="12" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="190" y="440" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="24" edge="1" parent="1" source="12" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=1.5;strokeColor=#000000;exitX=0.5;exitY=1;fontSize=14;fontFamily=宋体;fontStyle=0" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="165" y="570" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="26" edge="1" parent="1" source="9" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=1.2;dashed=1;dashPattern=4 4;strokeColor=#000000;exitX=0.5;exitY=1;entryX=0.5;entryY=0;fontSize=14;fontFamily=宋体;fontStyle=0" target="18" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="n7xJF0fKipUAmEoBFBcy-26" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="" vertex="1">
+          <mxGeometry height="595" width="590" x="50" y="720" as="geometry" />
+        </mxCell>
+        <mxCell id="n7xJF0fKipUAmEoBFBcy-27" edge="1" parent="1" source="15" style="endArrow=classic;startArrow=classic;html=1;rounded=0;entryX=0.75;entryY=1;entryDx=0;entryDy=0;exitX=0.359;exitY=-0.024;exitDx=0;exitDy=0;exitPerimeter=0;fontStyle=1" target="9" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="240" y="500" as="sourcePoint" />
+            <mxPoint x="290" y="450" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="n7xJF0fKipUAmEoBFBcy-31" edge="1" parent="1" style="endArrow=classic;startArrow=classic;html=1;rounded=0;entryX=0.75;entryY=1;entryDx=0;entryDy=0;" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="295" y="290" as="sourcePoint" />
+            <mxPoint x="295" y="207" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="n7xJF0fKipUAmEoBFBcy-32" edge="1" parent="1" style="endArrow=classic;startArrow=classic;html=1;rounded=0;entryX=0.75;entryY=1;entryDx=0;entryDy=0;" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <Array as="points">
+              <mxPoint x="430" y="565" />
+            </Array>
+            <mxPoint x="430" y="570" as="sourcePoint" />
+            <mxPoint x="430" y="515" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

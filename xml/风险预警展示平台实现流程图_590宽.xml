@@ -1,0 +1,102 @@
+<mxfile host="Electron">
+  <diagram id="risk_warning_display_flow" name="Page-1">
+    <mxGraphModel dx="512" dy="720" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="590" pageHeight="980" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="ZZanMF9iggX6GZLIWp1w-1" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="" vertex="1">
+          <mxGeometry height="800" width="590" x="650" y="450" as="geometry" />
+        </mxCell>
+        <mxCell id="a2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#ffffff;strokeColor=#000000;strokeWidth=2;fontFamily=宋体;fontSize=14;align=center;verticalAlign=middle;fontStyle=0" value="后端 /api/items 接口&lt;br&gt;聚合四个平台集合并序列化文档" vertex="1">
+          <mxGeometry height="58" width="400" x="745" y="520" as="geometry" />
+        </mxCell>
+        <mxCell id="a3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#ffffff;strokeColor=#000000;strokeWidth=2;fontFamily=宋体;fontSize=14;align=center;verticalAlign=middle;fontStyle=0" value="前端 app.js 接收数据&lt;br&gt;统一平台、作者、正文、图片、风险分字段" vertex="1">
+          <mxGeometry height="58" width="400" x="745" y="600" as="geometry" />
+        </mxCell>
+        <mxCell id="group1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;strokeWidth=1;fontFamily=宋体;fontSize=14;fontStyle=0;align=center;verticalAlign=top;spacingTop=8;" value="舆情监测页面" vertex="1">
+          <mxGeometry height="125" width="550" x="670" y="695" as="geometry" />
+        </mxCell>
+        <mxCell id="b1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fillColor=#ffffff;strokeColor=#000000;strokeWidth=2;fontFamily=宋体;fontSize=14;align=center;verticalAlign=middle;fontStyle=0" value="帖子卡片展示&lt;br&gt;平台 / 用户 / 时间 / 正文 / 图片" vertex="1">
+          <mxGeometry height="64" width="150" x="870" y="745" as="geometry" />
+        </mxCell>
+        <mxCell id="b2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fillColor=#ffffff;strokeColor=#000000;strokeWidth=2;fontFamily=宋体;fontSize=14;align=center;verticalAlign=middle;fontStyle=0" value="风险标签展示&lt;br&gt;综合风险分 / 中高风险 / 高风险" vertex="1">
+          <mxGeometry height="64" width="150" x="1050" y="745" as="geometry" />
+        </mxCell>
+        <mxCell id="b3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fillColor=#ffffff;strokeColor=#000000;strokeWidth=2;fontFamily=宋体;fontSize=14;align=center;verticalAlign=middle;fontStyle=0" value="文本展开与头像&lt;br&gt;长文本折叠 / 用户首字头像" vertex="1">
+          <mxGeometry height="64" width="150" x="690" y="745" as="geometry" />
+        </mxCell>
+        <mxCell id="c1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#ffffff;strokeColor=#000000;strokeWidth=2;fontFamily=宋体;fontSize=14;align=center;verticalAlign=middle;fontStyle=0" value="筛选与预警定位&lt;br&gt;平台筛选 / 风险等级 / 已分析 / 近两个月" vertex="1">
+          <mxGeometry height="62" width="400" x="745" y="860" as="geometry" />
+        </mxCell>
+        <mxCell id="group2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;strokeWidth=1;fontFamily=宋体;fontSize=14;fontStyle=0;align=center;verticalAlign=top;spacingTop=8;" value="风险结果查看" vertex="1">
+          <mxGeometry height="120" width="550" x="670" y="960" as="geometry" />
+        </mxCell>
+        <mxCell id="d1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fillColor=#ffffff;strokeColor=#000000;strokeWidth=2;fontFamily=宋体;fontSize=14;align=center;verticalAlign=middle;fontStyle=0" value="风险分析页&lt;br&gt;平台分布 / 风险等级 / 情感统计" vertex="1">
+          <mxGeometry height="64" width="150" x="870" y="1005.5" as="geometry" />
+        </mxCell>
+        <mxCell id="d2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fillColor=#ffffff;strokeColor=#000000;strokeWidth=2;fontFamily=宋体;fontSize=14;align=center;verticalAlign=middle;fontStyle=0" value="详情报告页&lt;br&gt;文本 / 图像 / OCR / 融合评分 / 建议" vertex="1">
+          <mxGeometry height="64" width="150" x="1050" y="1005.5" as="geometry" />
+        </mxCell>
+        <mxCell id="d3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fillColor=#ffffff;strokeColor=#000000;strokeWidth=2;fontFamily=宋体;fontSize=14;align=center;verticalAlign=middle;fontStyle=0" value="个人追踪页&lt;br&gt;加入追踪 / 重点舆情持续关注" vertex="1">
+          <mxGeometry height="64" width="150" x="690" y="1005.5" as="geometry" />
+        </mxCell>
+        <mxCell id="e1n" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#ffffff;strokeColor=#000000;strokeWidth=2;fontFamily=宋体;fontSize=14;align=center;verticalAlign=middle;fontStyle=0" value="形成风险预警展示闭环&lt;br&gt;数据读取 → 列表预警 → 筛选定位 → 详情分析 → 追踪处置" vertex="1">
+          <mxGeometry height="60" width="440" x="725" y="1120" as="geometry" />
+        </mxCell>
+        <mxCell id="e1" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=2;strokeColor=#000000;fontFamily=宋体;fontSize=14;fontStyle=0" target="a2" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="945.0526315789473" y="497.9999999999998" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e2" edge="1" parent="1" source="a2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=2;strokeColor=#000000;fontFamily=宋体;fontSize=14;fontStyle=0" target="a3" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=2;strokeColor=#000000;fontFamily=宋体;fontSize=14;fontStyle=0" value="渲染列表">
+          <mxGeometry relative="1" x="-0.0483" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="945" y="676" />
+              <mxPoint x="1125" y="676" />
+            </Array>
+            <mxPoint x="944.9473684210529" y="654" as="sourcePoint" />
+            <mxPoint x="1124.947368421053" y="741" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e4" edge="1" parent="1" source="b2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=2;strokeColor=#000000;fontFamily=宋体;fontSize=14;fontStyle=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="c1" value="">
+          <mxGeometry relative="1" x="0.0002" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="1125" y="840" />
+              <mxPoint x="945" y="840" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e5" edge="1" parent="1" source="c1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=2;strokeColor=#000000;fontFamily=宋体;fontSize=14;fontStyle=0" target="d2" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="945" y="940" />
+              <mxPoint x="1125" y="940" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e6" edge="1" parent="1" source="d2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=2;strokeColor=#000000;fontFamily=宋体;fontSize=14;fontStyle=0" target="e1n" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1125" y="1100" />
+              <mxPoint x="945" y="1100" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="M88-i6vWnnXOwzaI8U0E-1" parent="1" style="strokeWidth=2;html=1;shape=mxgraph.flowchart.terminator;whiteSpace=wrap;fontSize=14;fontStyle=0;fontFamily=宋体;" value="开始" vertex="1">
+          <mxGeometry height="40" width="100" x="895" y="460" as="geometry" />
+        </mxCell>
+        <mxCell id="M88-i6vWnnXOwzaI8U0E-2" parent="1" style="strokeWidth=2;html=1;shape=mxgraph.flowchart.terminator;whiteSpace=wrap;fontSize=14;fontStyle=0;fontFamily=宋体;" value="结束" vertex="1">
+          <mxGeometry height="40" width="100" x="895" y="1200" as="geometry" />
+        </mxCell>
+        <mxCell id="M88-i6vWnnXOwzaI8U0E-5" edge="1" parent="1" source="e1n" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;" target="M88-i6vWnnXOwzaI8U0E-2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="app.diagrams.net" modified="2026-05-12T00:00:00.000Z" agent="ChatGPT" version="24.7.17" type="device">
+  <diagram id="dfd-multi-source-collection-level1" name="多元舆情采集模块数据流图">
+    <mxGraphModel dx="1100" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="590" pageHeight="760" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+    <mxCell id="E_admin" value="管理员" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1;fontFamily=宋体;fontSize=14;fontColor=#000000;" vertex="1" parent="1">
+      <mxGeometry x="20" y="48" width="88" height="38" as="geometry" />
+    </mxCell>
+    <mxCell id="E_internet" value="互联网平台&lt;br&gt;微博 / 抖音&lt;br&gt;百度贴吧 / 小红书" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1;fontFamily=宋体;fontSize=14;fontColor=#000000;" vertex="1" parent="1">
+      <mxGeometry x="465" y="122" width="105" height="64" as="geometry" />
+    </mxCell>
+    <mxCell id="E_analysis" value="后续分析模块" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1;fontFamily=宋体;fontSize=14;fontColor=#000000;" vertex="1" parent="1">
+      <mxGeometry x="465" y="648" width="105" height="40" as="geometry" />
+    </mxCell>
+    <mxCell id="D1" value="D1 平台配置文件&lt;br&gt;runtime_config.json&lt;br&gt;platform_settings.json" style="shape=partialRectangle;right=0;whiteSpace=wrap;html=1;fillColor=#eeeeee;strokeColor=#000000;strokeWidth=1;fontFamily=宋体;fontSize=14;fontColor=#000000;spacingLeft=6;" vertex="1" parent="1">
+      <mxGeometry x="18" y="122" width="112" height="66" as="geometry" />
+    </mxCell>
+    <mxCell id="D2" value="D2 去重记录&lt;br&gt;seen_ids.txt" style="shape=partialRectangle;right=0;whiteSpace=wrap;html=1;fillColor=#eeeeee;strokeColor=#000000;strokeWidth=1;fontFamily=宋体;fontSize=14;fontColor=#000000;spacingLeft=6;" vertex="1" parent="1">
+      <mxGeometry x="205" y="470" width="105" height="48" as="geometry" />
+    </mxCell>
+    <mxCell id="D3" value="D3 本地图片目录&lt;br&gt;图片文件 / 访问路径" style="shape=partialRectangle;right=0;whiteSpace=wrap;html=1;fillColor=#eeeeee;strokeColor=#000000;strokeWidth=1;fontFamily=宋体;fontSize=14;fontColor=#000000;spacingLeft=6;" vertex="1" parent="1">
+      <mxGeometry x="455" y="378" width="112" height="54" as="geometry" />
+    </mxCell>
+    <mxCell id="D4" value="D4 MongoDB平台集合&lt;br&gt;test_weibo / test_douyin&lt;br&gt;test_baidu / test_xhs" style="shape=partialRectangle;right=0;whiteSpace=wrap;html=1;fillColor=#eeeeee;strokeColor=#000000;strokeWidth=1;fontFamily=宋体;fontSize=14;fontColor=#000000;spacingLeft=6;" vertex="1" parent="1">
+      <mxGeometry x="448" y="548" width="126" height="72" as="geometry" />
+    </mxCell>
+    <mxCell id="D5" value="D5 采集运行日志&lt;br&gt;写入数 / 重复数&lt;br&gt;丢弃数 / 异常信息" style="shape=partialRectangle;right=0;whiteSpace=wrap;html=1;fillColor=#eeeeee;strokeColor=#000000;strokeWidth=1;fontFamily=宋体;fontSize=14;fontColor=#000000;spacingLeft=6;" vertex="1" parent="1">
+      <mxGeometry x="315" y="650" width="118" height="66" as="geometry" />
+    </mxCell>
+    <mxCell id="P11" value="1.1&lt;br&gt;读取采集配置" style="ellipse;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#000000;strokeWidth=1;fontFamily=宋体;fontSize=14;fontColor=#000000;" vertex="1" parent="1">
+      <mxGeometry x="145" y="42" width="85" height="56" as="geometry" />
+    </mxCell>
+    <mxCell id="P12" value="1.2&lt;br&gt;创建采集任务" style="ellipse;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#000000;strokeWidth=1;fontFamily=宋体;fontSize=14;fontColor=#000000;" vertex="1" parent="1">
+      <mxGeometry x="255" y="42" width="85" height="56" as="geometry" />
+    </mxCell>
+    <mxCell id="P21" value="2.1&lt;br&gt;调度平台爬虫" style="ellipse;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#000000;strokeWidth=1;fontFamily=宋体;fontSize=14;fontColor=#000000;" vertex="1" parent="1">
+      <mxGeometry x="365" y="42" width="85" height="56" as="geometry" />
+    </mxCell>
+    <mxCell id="P22" value="2.2&lt;br&gt;平台数据采集" style="ellipse;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#000000;strokeWidth=1;fontFamily=宋体;fontSize=14;fontColor=#000000;" vertex="1" parent="1">
+      <mxGeometry x="365" y="190" width="90" height="58" as="geometry" />
+    </mxCell>
+    <mxCell id="P31" value="3.1&lt;br&gt;数据解析与&lt;br&gt;字段统一" style="ellipse;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#000000;strokeWidth=1;fontFamily=宋体;fontSize=14;fontColor=#000000;" vertex="1" parent="1">
+      <mxGeometry x="205" y="305" width="100" height="66" as="geometry" />
+    </mxCell>
+    <mxCell id="P32" value="3.2&lt;br&gt;图片下载与&lt;br&gt;路径保存" style="ellipse;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#000000;strokeWidth=1;fontFamily=宋体;fontSize=14;fontColor=#000000;" vertex="1" parent="1">
+      <mxGeometry x="345" y="305" width="100" height="66" as="geometry" />
+    </mxCell>
+    <mxCell id="P41" value="4.1&lt;br&gt;关键词过滤&lt;br&gt;与去重" style="ellipse;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#000000;strokeWidth=1;fontFamily=宋体;fontSize=14;fontColor=#000000;" vertex="1" parent="1">
+      <mxGeometry x="205" y="548" width="100" height="66" as="geometry" />
+    </mxCell>
+    <mxCell id="P42" value="4.2&lt;br&gt;写入平台集合" style="ellipse;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#000000;strokeWidth=1;fontFamily=宋体;fontSize=14;fontColor=#000000;" vertex="1" parent="1">
+      <mxGeometry x="335" y="548" width="96" height="62" as="geometry" />
+    </mxCell>
+    <mxCell id="F1" value="采集平台、关键词&lt;br&gt;Cookie、页数、图片规则" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#000000;strokeWidth=1;fontFamily=宋体;fontSize=14;fontColor=#000000;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="E_admin" target="P11">
+      <mxGeometry relative="1" as="geometry"></mxGeometry>
+    </mxCell>
+    <mxCell id="F2" value="运行配置、平台配置" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#000000;strokeWidth=1;fontFamily=宋体;fontSize=14;fontColor=#000000;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="D1" target="P11">
+      <mxGeometry relative="1" as="geometry"></mxGeometry>
+    </mxCell>
+    <mxCell id="F3" value="采集任务参数" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#000000;strokeWidth=1;fontFamily=宋体;fontSize=14;fontColor=#000000;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="P11" target="P12">
+      <mxGeometry relative="1" as="geometry"></mxGeometry>
+    </mxCell>
+    <mxCell id="F4" value="平台列表、目标数量&lt;br&gt;控制状态" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#000000;strokeWidth=1;fontFamily=宋体;fontSize=14;fontColor=#000000;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="P12" target="P21">
+      <mxGeometry relative="1" as="geometry"></mxGeometry>
+    </mxCell>
+    <mxCell id="F5" value="平台入口、配置覆盖项" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#000000;strokeWidth=1;fontFamily=宋体;fontSize=14;fontColor=#000000;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="P21" target="P22">
+      <mxGeometry relative="1" as="geometry"></mxGeometry>
+    </mxCell>
+    <mxCell id="F6" value="网页内容、搜索结果&lt;br&gt;帖子数据、图片链接" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#000000;strokeWidth=1;fontFamily=宋体;fontSize=14;fontColor=#000000;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="E_internet" target="P22">
+      <mxGeometry relative="1" as="geometry"></mxGeometry>
+    </mxCell>
+    <mxCell id="F7" value="原始舆情数据" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#000000;strokeWidth=1;fontFamily=宋体;fontSize=14;fontColor=#000000;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="P22" target="P31">
+      <mxGeometry relative="1" as="geometry"></mxGeometry>
+    </mxCell>
+    <mxCell id="F8" value="图片URL、帖子图片信息" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#000000;strokeWidth=1;fontFamily=宋体;fontSize=14;fontColor=#000000;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="P31" target="P32">
+      <mxGeometry relative="1" as="geometry"></mxGeometry>
+    </mxCell>
+    <mxCell id="F9" value="图片文件" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#000000;strokeWidth=1;fontFamily=宋体;fontSize=14;fontColor=#000000;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="P32" target="D3">
+      <mxGeometry relative="1" as="geometry"></mxGeometry>
+    </mxCell>
+    <mxCell id="F10" value="统一字段数据" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#000000;strokeWidth=1;fontFamily=宋体;fontSize=14;fontColor=#000000;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="P31" target="P41">
+      <mxGeometry relative="1" as="geometry"></mxGeometry>
+    </mxCell>
+    <mxCell id="F11" value="已采集ID" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#000000;strokeWidth=1;fontFamily=宋体;fontSize=14;fontColor=#000000;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="D2" target="P41">
+      <mxGeometry relative="1" as="geometry"></mxGeometry>
+    </mxCell>
+    <mxCell id="F12" value="新增采集ID" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#000000;strokeWidth=1;fontFamily=宋体;fontSize=14;fontColor=#000000;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="P41" target="D2">
+      <mxGeometry relative="1" as="geometry"></mxGeometry>
+    </mxCell>
+    <mxCell id="F13" value="有效非重复&lt;br&gt;舆情数据" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#000000;strokeWidth=1;fontFamily=宋体;fontSize=14;fontColor=#000000;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="P41" target="P42">
+      <mxGeometry relative="1" as="geometry"></mxGeometry>
+    </mxCell>
+    <mxCell id="F14" value="分平台结构化文档" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#000000;strokeWidth=1;fontFamily=宋体;fontSize=14;fontColor=#000000;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="P42" target="D4">
+      <mxGeometry relative="1" as="geometry"></mxGeometry>
+    </mxCell>
+    <mxCell id="F15" value="写入数、重复数&lt;br&gt;丢弃数、运行日志" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#000000;strokeWidth=1;fontFamily=宋体;fontSize=14;fontColor=#000000;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="P42" target="D5">
+      <mxGeometry relative="1" as="geometry"></mxGeometry>
+    </mxCell>
+    <mxCell id="F16" value="待分析舆情数据" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#000000;strokeWidth=1;fontFamily=宋体;fontSize=14;fontColor=#000000;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="D4" target="E_analysis">
+      <mxGeometry relative="1" as="geometry"></mxGeometry>
+    </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -1,0 +1,74 @@
+<mxfile host="app.diagrams.net" agent="ChatGPT">
+  <diagram id="fusion-score-diagram" name="多模态融合评分流程图">
+    <mxGraphModel dx="994" dy="646" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="590" pageHeight="500" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="c2" parent="1" style="rounded=0;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;strokeWidth=1.5;align=center;verticalAlign=top;spacingTop=8;fontFamily=宋体;fontSize=14;html=1;fontStyle=0" value="" vertex="1">
+          <mxGeometry height="450" width="590" x="20" y="20" as="geometry" />
+        </mxCell>
+        <mxCell id="TOqzwzjxjha2cLRsd5Mm-6" edge="1" parent="c2" source="c11" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontSize=14;fontFamily=宋体;fontStyle=0" target="c14">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="275" y="350" />
+              <mxPoint x="75" y="350" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="TOqzwzjxjha2cLRsd5Mm-8" edge="1" parent="c2" source="c11" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontSize=14;fontFamily=宋体;fontStyle=0" target="c13">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="TOqzwzjxjha2cLRsd5Mm-9" edge="1" parent="c2" source="c11" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;fontSize=14;fontFamily=宋体;fontStyle=0" target="c12">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="275" y="350" />
+              <mxPoint x="470" y="350" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="c11" parent="c2" style="rounded=1;whiteSpace=wrap;html=1;strokeWidth=1;align=center;verticalAlign=middle;fontFamily=宋体;fontSize=14;html=1;fontStyle=0" value="综合风险分数" vertex="1">
+          <mxGeometry height="40" width="120" x="215" y="300" as="geometry" />
+        </mxCell>
+        <mxCell id="c12" parent="c2" style="rounded=1;whiteSpace=wrap;html=1;strokeWidth=1.2;align=center;verticalAlign=middle;fontFamily=宋体;fontSize=14;html=1;fontStyle=0" value="高风险&lt;br&gt;醒目标注&lt;br&gt;进入预警列表" vertex="1">
+          <mxGeometry height="66" width="110" x="415" y="370" as="geometry" />
+        </mxCell>
+        <mxCell id="c13" parent="c2" style="rounded=1;whiteSpace=wrap;html=1;strokeWidth=1.2;align=center;verticalAlign=middle;fontFamily=宋体;fontSize=14;html=1;fontStyle=0" value="中风险&lt;br&gt;提示用户核查" vertex="1">
+          <mxGeometry height="66" width="110" x="220.5" y="370" as="geometry" />
+        </mxCell>
+        <mxCell id="c14" parent="c2" style="rounded=1;whiteSpace=wrap;html=1;strokeWidth=1.2;align=center;verticalAlign=middle;fontFamily=宋体;fontSize=14;html=1;fontStyle=0" value="低风险&lt;br&gt;普通监测展示" vertex="1">
+          <mxGeometry height="66" width="110" x="20" y="370" as="geometry" />
+        </mxCell>
+        <mxCell id="c7" parent="c2" style="rounded=1;whiteSpace=wrap;html=1;strokeWidth=1;align=center;verticalAlign=middle;fontFamily=宋体;fontSize=14;html=1;fontStyle=0" value="图片检测结果&lt;br&gt;OCR风险词&lt;br&gt;二维码 / 手机号 / 微信号&lt;br&gt;金额数字 / 收益率&lt;br&gt;宣传海报特征" vertex="1">
+          <mxGeometry height="110" width="165" x="193" y="10" as="geometry" />
+        </mxCell>
+        <mxCell id="c8" parent="c2" style="rounded=1;whiteSpace=wrap;html=1;strokeWidth=1;align=center;verticalAlign=middle;fontFamily=宋体;fontSize=14;html=1;fontStyle=0" value="舆情传播数据&lt;br&gt;点赞数&lt;br&gt;评论数&lt;br&gt;转发数&lt;br&gt;传播影响力" vertex="1">
+          <mxGeometry height="110" width="180" x="400" y="10" as="geometry" />
+        </mxCell>
+        <mxCell id="c6" parent="c2" style="rounded=1;whiteSpace=wrap;html=1;strokeWidth=1;align=center;verticalAlign=middle;fontFamily=宋体;fontSize=14;html=1;fontStyle=0" value="文本分析结果&lt;br&gt;金融属性强度&lt;br&gt;风险关键词数量&lt;br&gt;煽动性表达&lt;br&gt;虚假承诺 / 紧迫营销" vertex="1">
+          <mxGeometry height="110" width="145" x="10" y="10" as="geometry" />
+        </mxCell>
+        <mxCell id="c9" parent="c2" style="rounded=1;whiteSpace=wrap;html=1;strokeWidth=1.2;align=center;verticalAlign=middle;fontFamily=宋体;fontSize=14;html=1;fontStyle=0" value="特征Token统一表示&lt;br&gt;文本、图像、传播数据转化为同一维度特征" vertex="1">
+          <mxGeometry height="42" width="300" x="125" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="c16" edge="1" parent="c2" source="c6" style="endArrow=block;endFill=1;html=1;rounded=0;strokeWidth=1.2;fontFamily=宋体;fontSize=14;html=1;fontStyle=0" target="c9" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c17" edge="1" parent="c2" source="c7" style="endArrow=block;endFill=1;html=1;rounded=0;strokeWidth=1.2;fontFamily=宋体;fontSize=14;html=1;fontStyle=0" target="c9" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c18" edge="1" parent="c2" source="c8" style="endArrow=block;endFill=1;html=1;rounded=0;strokeWidth=1.2;fontFamily=宋体;fontSize=14;html=1;fontStyle=0" target="c9" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c10" parent="c2" style="rounded=1;whiteSpace=wrap;html=1;strokeWidth=1.2;align=center;verticalAlign=middle;fontFamily=宋体;fontSize=14;html=1;fontStyle=0" value="多模态特征融合 + 神经网络评分&lt;br&gt;综合多维信息，降低单一关键词或单一模型误判" vertex="1">
+          <mxGeometry height="46" width="400" x="75.5" y="230" as="geometry" />
+        </mxCell>
+        <mxCell id="c19" edge="1" parent="c2" source="c9" style="endArrow=block;endFill=1;html=1;rounded=0;strokeWidth=1.2;fontFamily=宋体;fontSize=14;html=1;fontStyle=0" target="c10" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c20" edge="1" parent="c2" source="c10" style="endArrow=block;endFill=1;html=1;rounded=0;strokeWidth=1.2;fontFamily=宋体;fontSize=14;html=1;fontStyle=0" target="c11" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

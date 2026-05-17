@@ -1,0 +1,40 @@
+<mxfile host="app.diagrams.net" agent="ChatGPT">
+  <diagram id="public-opinion-risk-analysis-flow" name="Page-1">
+    <mxGraphModel dx="1193" dy="775" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2000" pageHeight="1200" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="X4Cn-gTyPylelO9jYeyX-45" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="" vertex="1">
+          <mxGeometry height="180" width="590" x="550" y="350" as="geometry" />
+        </mxCell>
+        <mxCell id="4" parent="1" style="rounded=1;arcSize=12;strokeWidth=2;shadow=0;whiteSpace=wrap;html=1;fontFamily=宋体;fontSize=14;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontStyle=0;" value="从 MongoDB 读取&lt;br&gt;待分析舆情记录" vertex="1">
+          <mxGeometry height="88" width="130" x="570" y="396" as="geometry" />
+        </mxCell>
+        <mxCell id="7" parent="1" style="rounded=1;arcSize=12;strokeWidth=2;shadow=0;whiteSpace=wrap;html=1;fontFamily=宋体;fontSize=14;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontStyle=0;" value="&lt;div&gt;&lt;br&gt;&lt;/div&gt;文本与图像分析&lt;div&gt;&lt;br&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="70" width="120" x="720" y="405" as="geometry" />
+        </mxCell>
+        <mxCell id="X4Cn-gTyPylelO9jYeyX-50" edge="1" parent="1" source="8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontSize=14;fontFamily=宋体;fontStyle=0" target="9" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="8" parent="1" style="rounded=1;arcSize=12;strokeWidth=2;shadow=0;whiteSpace=wrap;html=1;fontFamily=宋体;fontSize=14;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontStyle=0;" value="多模态融合评估&lt;br&gt;计算综合风险分" vertex="1">
+          <mxGeometry height="88" width="120" x="870" y="396" as="geometry" />
+        </mxCell>
+        <mxCell id="9" parent="1" style="rounded=1;arcSize=12;strokeWidth=2;shadow=0;whiteSpace=wrap;html=1;fontFamily=宋体;fontSize=14;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontStyle=0;" value="写回 MongoDB&lt;br&gt;前端读取展示" vertex="1">
+          <mxGeometry height="68" width="90" x="1030" y="406" as="geometry" />
+        </mxCell>
+        <mxCell id="13" edge="1" parent="1" source="7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=2;fontSize=14;fontFamily=宋体;exitX=1;exitY=0.5;exitDx=0;exitDy=0;fontStyle=0" target="8" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="14" edge="1" parent="1" source="8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=2;fontSize=14;fontFamily=宋体;fontStyle=0" target="9" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="X4Cn-gTyPylelO9jYeyX-49" edge="1" parent="1" source="4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=2;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;fontSize=14;fontFamily=宋体;fontStyle=0" target="7" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="550" y="446" as="sourcePoint" />
+            <mxPoint x="610" y="446" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

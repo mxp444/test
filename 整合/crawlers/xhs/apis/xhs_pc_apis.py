@@ -473,6 +473,7 @@ class XHS_Apis():
             filter_pos_distance = "附近"
         if geo:
             geo = json.dumps(geo, separators=(',', ':'))
+        res_json = None
         try:
             api = "/api/sns/web/v1/search/notes"
             data = {
@@ -523,11 +524,31 @@ class XHS_Apis():
                 ]
             }
             headers, cookies, data = generate_request_params(cookies_str, api, data, 'POST')
-            response = requests.post(self.base_url + api, headers=headers, data=data.encode('utf-8'), cookies=cookies, proxies=proxies)
+            response = requests.post(
+                self.base_url + api,
+                headers=headers,
+                data=data.encode('utf-8'),
+                cookies=cookies,
+                proxies=proxies,
+                timeout=20,
+            )
             status_code = response.status_code
             response_text = response.text
             res_json = response.json()
-            success, msg = res_json["success"], res_json["msg"]
+            success = bool(res_json.get("success"))
+            msg = str(res_json.get("msg") or res_json.get("message") or "")
+            data_obj = res_json.get("data") if isinstance(res_json, dict) else None
+            if status_code == 461:
+                success = False
+                msg = (
+                    "xhs verification failed: status=461. "
+                    "Cookie is available but request signature/User-Agent/web fingerprint may not match the browser."
+                )
+            elif not isinstance(data_obj, dict):
+                success = False
+                msg = msg or f"invalid response data: {type(data_obj).__name__}"
+            elif success and "items" not in data_obj:
+                msg = msg or "empty search result"
         except Exception as e:
             success = False
             detail = []

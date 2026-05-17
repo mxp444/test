@@ -99,16 +99,18 @@ function renderReport(item) {
   const image = data.image_feature_extraction || {};
   const ocr = data.ocr_text_feature_extraction || {};
   const fusion = data.multimodal_feature_fusion || {};
+  const normalizedScore = normalizeRiskScore(summary.total_score);
+  const derivedRiskLevel = riskLevelFromScore(normalizedScore) || summary.risk_level || "--";
 
-  reportStatus.textContent = summary.risk_level || "已加载";
+  reportStatus.textContent = derivedRiskLevel;
   reportStatus.className = "status-pill ok";
   reportMeta.textContent = `${item.screen_name || "未知用户"} · ${item.created_at || ""}`;
 
   reportContent.innerHTML = `
     <section class="report-card">
       <div class="score-grid">
-        <div><span>综合风险分</span><strong>${formatScore(summary.total_score)}</strong></div>
-        <div><span>风险等级</span><strong>${escapeHtml(summary.risk_level || "--")}</strong></div>
+        <div><span>综合风险分</span><strong>${formatScore(normalizedScore)}</strong></div>
+        <div><span>风险等级</span><strong>${escapeHtml(derivedRiskLevel)}</strong></div>
       </div>
       <p class="conclusion">${escapeHtml(summary.conclusion || "暂无结论")}</p>
       <p class="text-box">${escapeHtml(summary.suggestion || "")}</p>
@@ -308,6 +310,20 @@ function labelFor(key, labels = {}) {
 function formatScore(value) {
   const number = Number(value);
   return Number.isFinite(number) ? number.toFixed(2) : "--";
+}
+
+function normalizeRiskScore(value) {
+  const score = Number(value);
+  if (!Number.isFinite(score)) return NaN;
+  return score > 0 && score <= 1 ? score * 100 : score;
+}
+
+function riskLevelFromScore(score) {
+  if (!Number.isFinite(score)) return "";
+  if (score >= 80) return "高风险";
+  if (score >= 60) return "中高风险";
+  if (score >= 40) return "中风险";
+  return "低风险";
 }
 
 function formatPercent(value) {

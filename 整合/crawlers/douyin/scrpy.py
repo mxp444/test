@@ -389,8 +389,16 @@ def make_item(aweme: Dict[str, Any], source_url: str, crawl_keyword: str = "") -
 
 
 def match_filter_keywords(item: Dict[str, Any], filter_keywords: List[str]) -> List[str]:
-    text = item.get("text", "")
-    return [keyword for keyword in filter_keywords if keyword and keyword in text]
+    text = clean_text(item.get("text", ""))
+    normalized_text = text.lower()
+    matched = []
+    for keyword in filter_keywords:
+        needle = clean_text(keyword)
+        if not needle:
+            continue
+        if needle in text or needle.lower() in normalized_text:
+            matched.append(needle)
+    return matched
 
 
 def get_pic_dir() -> Path:
@@ -564,10 +572,14 @@ def run_crawler(controller=None, log=print, progress=None, item_callback=None) -
                 return
 
             matched = match_filter_keywords(item, filter_keywords)
+            # Douyin search results are already scoped by the search keyword, so
+            # we only enforce a second exact-text match when the setting asks for it.
             if getattr(setting, "REQUIRE_KEYWORD_MATCH", True) and not matched:
                 unmatched += 1
                 report_progress()
                 return
+            if not matched and crawl_keyword:
+                matched = [crawl_keyword]
             item["matched_keywords"] = matched
             item["keyword"] = ",".join(matched)
             local_pics = download_pics(session, item)

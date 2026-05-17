@@ -1,0 +1,54 @@
+<mxfile host="app.diagrams.net" agent="ChatGPT">
+  <diagram id="public-opinion-collection-flow" name="Page-1">
+    <mxGraphModel dx="1193" dy="775" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2200" pageHeight="1200" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="ODscXYKvWXi3FWGDlrPw-56" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=14;fontFamily=宋体;fontStyle=0;fontColor=#000000;" value="" vertex="1">
+          <mxGeometry height="370" width="590" x="60" y="760" as="geometry" />
+        </mxCell>
+        <mxCell id="ODscXYKvWXi3FWGDlrPw-57" parent="1" style="rounded=1;arcSize=12;strokeWidth=2;shadow=0;whiteSpace=wrap;html=1;fontFamily=宋体;fontSize=14;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontStyle=0;fontColor=#000000;" value="&lt;font face=&quot;Times New Roman&quot;&gt;1.&lt;/font&gt;选择采集平台&lt;br&gt;微博 / 抖音 / 百度贴吧 / 小红书" vertex="1">
+          <mxGeometry height="90" width="170" x="70" y="780" as="geometry" />
+        </mxCell>
+        <mxCell id="ODscXYKvWXi3FWGDlrPw-58" parent="1" style="rounded=1;arcSize=12;strokeWidth=2;shadow=0;whiteSpace=wrap;html=1;fontFamily=宋体;fontSize=14;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontStyle=0;fontColor=#000000;" value="&lt;font face=&quot;Times New Roman&quot;&gt;2.&lt;/font&gt;配置采集规则&lt;br&gt;关键词 / &lt;font face=&quot;Times New Roman&quot;&gt;Cookie&lt;/font&gt; 等" vertex="1">
+          <mxGeometry height="90" width="150" x="280" y="780" as="geometry" />
+        </mxCell>
+        <mxCell id="ODscXYKvWXi3FWGDlrPw-59" parent="1" style="rounded=1;arcSize=12;strokeWidth=2;shadow=0;whiteSpace=wrap;html=1;fontFamily=宋体;fontSize=14;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontStyle=0;fontColor=#000000;" value="&lt;font face=&quot;Times New Roman&quot;&gt;3.&lt;/font&gt;提交采集任务&lt;br&gt;系统接收任务" vertex="1">
+          <mxGeometry height="90" width="150" x="470" y="780" as="geometry" />
+        </mxCell>
+        <mxCell id="ODscXYKvWXi3FWGDlrPw-60" parent="1" style="rounded=1;arcSize=12;strokeWidth=2;shadow=0;whiteSpace=wrap;html=1;fontFamily=宋体;fontSize=14;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontStyle=0;fontColor=#000000;" value="&lt;font face=&quot;Times New Roman&quot;&gt;4.&lt;/font&gt;内容解析&lt;br&gt;帖子正文 / 作者信息" vertex="1">
+          <mxGeometry height="90" width="150" x="470" y="890" as="geometry" />
+        </mxCell>
+        <mxCell id="ODscXYKvWXi3FWGDlrPw-61" parent="1" style="rounded=1;arcSize=12;strokeWidth=2;shadow=0;whiteSpace=wrap;html=1;fontFamily=宋体;fontSize=14;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontStyle=0;fontColor=#000000;" value="&lt;font face=&quot;Times New Roman&quot;&gt;5.&lt;/font&gt;关键词过滤与去重&lt;br&gt;剔除无关和重复数据" vertex="1">
+          <mxGeometry height="90" width="150" x="280" y="890" as="geometry" />
+        </mxCell>
+        <mxCell id="ODscXYKvWXi3FWGDlrPw-62" parent="1" style="rounded=1;arcSize=12;strokeWidth=2;shadow=0;whiteSpace=wrap;html=1;fontFamily=宋体;fontSize=14;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontStyle=0;fontColor=#000000;" value="&lt;font face=&quot;Times New Roman&quot;&gt;6.&lt;/font&gt;写入 &lt;font face=&quot;Times New Roman&quot;&gt;MongoDB&lt;/font&gt;&lt;br&gt;对应集合" vertex="1">
+          <mxGeometry height="90" width="170" x="70" y="890" as="geometry" />
+        </mxCell>
+        <mxCell id="ODscXYKvWXi3FWGDlrPw-63" edge="1" parent="1" source="ODscXYKvWXi3FWGDlrPw-57" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=2;fontFamily=宋体;fontSize=14;fontStyle=0;fontColor=#000000;" target="ODscXYKvWXi3FWGDlrPw-58" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ODscXYKvWXi3FWGDlrPw-64" edge="1" parent="1" source="ODscXYKvWXi3FWGDlrPw-58" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=2;fontFamily=宋体;fontSize=14;fontStyle=0;fontColor=#000000;" target="ODscXYKvWXi3FWGDlrPw-59" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ODscXYKvWXi3FWGDlrPw-65" edge="1" parent="1" source="ODscXYKvWXi3FWGDlrPw-59" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=2;entryX=1;entryY=0.5;entryDx=0;entryDy=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;fontFamily=宋体;fontSize=14;fontStyle=0;fontColor=#000000;" target="ODscXYKvWXi3FWGDlrPw-60" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="700" y="825" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ODscXYKvWXi3FWGDlrPw-66" edge="1" parent="1" source="ODscXYKvWXi3FWGDlrPw-60" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=2;fontFamily=宋体;fontSize=14;fontStyle=0;fontColor=#000000;" target="ODscXYKvWXi3FWGDlrPw-61" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ODscXYKvWXi3FWGDlrPw-67" edge="1" parent="1" source="ODscXYKvWXi3FWGDlrPw-61" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=2;fontFamily=宋体;fontSize=14;fontStyle=0;fontColor=#000000;" target="ODscXYKvWXi3FWGDlrPw-62" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ODscXYKvWXi3FWGDlrPw-68" parent="1" style="rounded=1;arcSize=12;strokeWidth=2;shadow=0;whiteSpace=wrap;html=1;fontFamily=宋体;fontSize=14;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontStyle=0;fontColor=#000000;" value="进入后续分析流程&#xa;文本分析 / 图像分析 / 多模态融合评估" vertex="1">
+          <mxGeometry height="100" width="260" x="235" y="1020" as="geometry" />
+        </mxCell>
+        <mxCell id="ODscXYKvWXi3FWGDlrPw-69" edge="1" parent="1" source="ODscXYKvWXi3FWGDlrPw-62" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=2;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontFamily=宋体;fontSize=14;fontStyle=0;fontColor=#000000;" target="ODscXYKvWXi3FWGDlrPw-68" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

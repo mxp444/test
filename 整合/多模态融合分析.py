@@ -25,6 +25,10 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
+from encoding_guard import install_encoding_guard
+
+install_encoding_guard()
+
 import jieba
 import numpy as np
 

@@ -1,5 +1,21 @@
 [
   {
+    "id": "15e26102d73448309df9798d44a543a4",
+    "owner": "user",
+    "source_kind": "application",
+    "platform_id": "",
+    "platform_name": "123",
+    "platform_type": "金融APP",
+    "target_url": "123",
+    "account_name": "",
+    "keywords": "wafsfEFEf e",
+    "time_range": "不限",
+    "status": "待审核",
+    "created_at": "2026-05-15 19:57:46",
+    "updated_at": "2026-05-15 19:57:46",
+    "result_count": 0
+  },
+  {
     "id": "platform-weibo",
     "owner": "admin",
     "platform_id": "weibo",

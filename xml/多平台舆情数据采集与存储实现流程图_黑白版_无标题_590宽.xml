@@ -1,0 +1,114 @@
+<mxfile host="Electron">
+  <diagram id="multi_platform_collection_storage" name="Page-1">
+    <mxGraphModel dx="512" dy="1650" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="590" pageHeight="930" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="PHfRdtU3XYkTX4Pp05HX-2" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontStyle=0;fontSize=14;fontFamily=宋体;" value="" vertex="1">
+          <mxGeometry height="930" width="590" x="700" y="-100" as="geometry" />
+        </mxCell>
+        <mxCell id="a1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#ffffff;strokeColor=#000000;strokeWidth=2;fontFamily=宋体;fontSize=14;align=center;verticalAlign=middle;fontStyle=0" value="管理员配置采集任务&lt;br&gt;平台、Cookie、关键词、页数、图片规则" vertex="1">
+          <mxGeometry height="58" width="405" x="792.5" y="-25" as="geometry" />
+        </mxCell>
+        <mxCell id="a2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#ffffff;strokeColor=#000000;strokeWidth=2;fontFamily=宋体;fontSize=14;align=center;verticalAlign=middle;fontStyle=0" value="创建 CrawlTask&lt;br&gt;控制启动、暂停、继续与日志统计" vertex="1">
+          <mxGeometry height="58" width="400" x="795" y="55" as="geometry" />
+        </mxCell>
+        <mxCell id="a3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#ffffff;strokeColor=#000000;strokeWidth=2;fontFamily=宋体;fontSize=14;align=center;verticalAlign=middle;fontStyle=0" value="统一运行器&lt;br&gt;动态加载平台爬虫入口" vertex="1">
+          <mxGeometry height="58" width="400" x="795" y="135" as="geometry" />
+        </mxCell>
+        <mxCell id="group1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1;fontFamily=宋体;fontSize=14;fontStyle=0;align=center;verticalAlign=top;spacingTop=8;" value="平台爬虫模块" vertex="1">
+          <mxGeometry height="110" width="510" x="730" y="230" as="geometry" />
+        </mxCell>
+        <mxCell id="p1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fillColor=#ffffff;strokeColor=#000000;strokeWidth=2;fontFamily=宋体;fontSize=14;align=center;verticalAlign=middle;fontStyle=0" value="微博&lt;br&gt;关键词搜索" vertex="1">
+          <mxGeometry height="60" width="110" x="990" y="270" as="geometry" />
+        </mxCell>
+        <mxCell id="p2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fillColor=#ffffff;strokeColor=#000000;strokeWidth=2;fontFamily=宋体;fontSize=14;align=center;verticalAlign=middle;fontStyle=0" value="抖音&lt;br&gt;图文作品" vertex="1">
+          <mxGeometry height="60" width="110" x="870" y="270" as="geometry" />
+        </mxCell>
+        <mxCell id="p3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fillColor=#ffffff;strokeColor=#000000;strokeWidth=2;fontFamily=宋体;fontSize=14;align=center;verticalAlign=middle;fontStyle=0" value="百度贴吧&lt;br&gt;主题帖" vertex="1">
+          <mxGeometry height="60" width="110" x="1110" y="270" as="geometry" />
+        </mxCell>
+        <mxCell id="p4" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fillColor=#ffffff;strokeColor=#000000;strokeWidth=2;fontFamily=宋体;fontSize=14;align=center;verticalAlign=middle;fontStyle=0" value="小红书&lt;br&gt;图文笔记" vertex="1">
+          <mxGeometry height="60" width="110" x="747.5" y="270" as="geometry" />
+        </mxCell>
+        <mxCell id="b1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#ffffff;strokeColor=#000000;strokeWidth=2;fontFamily=宋体;fontSize=14;align=center;verticalAlign=middle;fontStyle=0" value="字段统一与图片保存" vertex="1">
+          <mxGeometry height="64" width="147.5" x="921.25" y="370" as="geometry" />
+        </mxCell>
+        <mxCell id="b2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#ffffff;strokeColor=#000000;strokeWidth=2;fontFamily=宋体;fontSize=14;align=center;verticalAlign=middle;fontStyle=0" value="去重与异常处理" vertex="1">
+          <mxGeometry height="40" width="182.5" x="903.75" y="460" as="geometry" />
+        </mxCell>
+        <mxCell id="group2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1;fontFamily=宋体;fontSize=14;fontStyle=0;align=center;verticalAlign=top;spacingTop=8;" value="MongoDB 分平台集合存储" vertex="1">
+          <mxGeometry height="118" width="490" x="740" y="560" as="geometry" />
+        </mxCell>
+        <mxCell id="m1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fillColor=#ffffff;strokeColor=#000000;strokeWidth=2;fontFamily=宋体;fontSize=14;align=center;verticalAlign=middle;fontStyle=0" value="test_weibo" vertex="1">
+          <mxGeometry height="42" width="110" x="990" y="610" as="geometry" />
+        </mxCell>
+        <mxCell id="m2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fillColor=#ffffff;strokeColor=#000000;strokeWidth=2;fontFamily=宋体;fontSize=14;align=center;verticalAlign=middle;fontStyle=0" value="test_douyin" vertex="1">
+          <mxGeometry height="42" width="110" x="870" y="610" as="geometry" />
+        </mxCell>
+        <mxCell id="m3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fillColor=#ffffff;strokeColor=#000000;strokeWidth=2;fontFamily=宋体;fontSize=14;align=center;verticalAlign=middle;fontStyle=0" value="test_baidu" vertex="1">
+          <mxGeometry height="42" width="110" x="1110" y="610" as="geometry" />
+        </mxCell>
+        <mxCell id="m4" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fillColor=#ffffff;strokeColor=#000000;strokeWidth=2;fontFamily=宋体;fontSize=14;align=center;verticalAlign=middle;fontStyle=0" value="test_xhs" vertex="1">
+          <mxGeometry height="42" width="110" x="747.5" y="610" as="geometry" />
+        </mxCell>
+        <mxCell id="c1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#ffffff;strokeColor=#000000;strokeWidth=2;fontFamily=宋体;fontSize=14;align=center;verticalAlign=middle;fontStyle=0" value="前端数据库管理&lt;br&gt;集合树、data 数量、JSON 查询、分页、Add Data、编辑删除" vertex="1">
+          <mxGeometry height="58" width="440" x="775" y="700" as="geometry" />
+        </mxCell>
+        <mxCell id="e1" edge="1" parent="1" source="a1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=2;strokeColor=#000000;fontFamily=宋体;fontSize=14;fontStyle=0" target="a2" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" edge="1" parent="1" source="a2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=2;strokeColor=#000000;fontFamily=宋体;fontSize=14;fontStyle=0" target="a3" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" edge="1" parent="1" source="a3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=2;strokeColor=#000000;fontFamily=宋体;fontSize=14;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontStyle=0" target="p2" value="分发任务">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="995" y="210" />
+              <mxPoint x="925" y="210" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e4" edge="1" parent="1" source="p2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=2;strokeColor=#000000;fontFamily=宋体;fontSize=14;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontStyle=0" target="b1" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="933" y="350" />
+              <mxPoint x="995" y="350" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e5" edge="1" parent="1" source="b1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=2;strokeColor=#000000;fontFamily=宋体;fontSize=14;fontStyle=0" target="b2" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6" edge="1" parent="1" source="b2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=2;strokeColor=#000000;fontFamily=宋体;fontSize=14;fontStyle=0" target="m2" value="非重复数据">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="995" y="520" />
+              <mxPoint x="900" y="520" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e7" edge="1" parent="1" source="m2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=2;strokeColor=#000000;fontFamily=宋体;fontSize=14;fontStyle=0" target="c1" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="912.5" y="740" />
+              <mxPoint x="994.5" y="740" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="PHfRdtU3XYkTX4Pp05HX-4" edge="1" parent="1" source="PHfRdtU3XYkTX4Pp05HX-3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontStyle=0;fontSize=14;fontFamily=宋体;" target="a1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="PHfRdtU3XYkTX4Pp05HX-3" parent="1" style="strokeWidth=2;html=1;shape=mxgraph.flowchart.terminator;whiteSpace=wrap;fontSize=14;fontFamily=宋体;fontStyle=0" value="开始" vertex="1">
+          <mxGeometry height="40" width="100" x="945" y="-90" as="geometry" />
+        </mxCell>
+        <mxCell id="PHfRdtU3XYkTX4Pp05HX-5" parent="1" style="strokeWidth=2;html=1;shape=mxgraph.flowchart.terminator;whiteSpace=wrap;fontSize=14;fontFamily=宋体;fontStyle=0" value="结束" vertex="1">
+          <mxGeometry height="40" width="100" x="935" y="780" as="geometry" />
+        </mxCell>
+        <mxCell id="PHfRdtU3XYkTX4Pp05HX-6" edge="1" parent="1" source="c1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;fontStyle=0;fontSize=14;fontFamily=宋体;" target="PHfRdtU3XYkTX4Pp05HX-5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

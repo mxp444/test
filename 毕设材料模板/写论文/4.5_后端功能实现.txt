@@ -1,0 +1,11 @@
+4.5  后端功能实现
+
+本系统后端采用 Flask 框架实现，核心代码集中在整合/backend/app.py 中。后端主要承担前端页面服务、REST 接口提供、MongoDB 数据访问、多平台爬虫调度、多模态分析调用、账号权限控制和后台管理等功能。程序启动时会读取 runtime_config.json、platform_settings.json、collection_sources.json、users.json 等配置文件，将分析引擎、并发数量、自动分析开关、平台 Cookie、关键词、账号和采集源申请等信息加载到系统中，并在配置变更后写回本地文件，实现轻量化持久化管理。
+
+在数据访问方面，后端通过 PyMongo 连接 MongoDB，并将微博、抖音、百度贴吧和小红书分别映射到 test_weibo、test_douyin、test_baidu、test_xhs 四个集合。代码中封装了 platform_collection、iter_platform_collections、serialize_doc 等函数，用于统一定位平台集合、遍历多平台数据和整理返回给前端的文档结构。由于 MongoDB 中存在 ObjectId、datetime、Binary 等不能直接 JSON 序列化的数据类型，后端实现了 bson_to_jsonable 方法，将特殊 BSON 类型转换为前端可识别的字符串或对象结构，从而保证普通舆情页面和数据库管理页面都能稳定显示。
+
+采集调度功能由 CrawlTask 和 WebCrawlController 负责。管理员在后台选择采集平台并启动任务后，后端根据平台列表调用 crawlers/runner.py，由统一运行器动态加载各平台爬虫入口，并传入 Cookie、关键词、页数、图片规则等配置。采集任务运行过程中支持暂停、继续、状态查询和日志返回，前端通过 /api/crawl/status 轮询展示写入数量、重复数量、未命中数量和丢弃数量等统计信息。
+
+多模态分析功能采用可插拔设计。后端根据 runtime_config.json 中的 analysis_engine_file 动态加载 MultimodalRiskFusion 分析类，可以在 API 版、本地版和端到端深度网络版之间切换。采集数据会先写入 MongoDB，再根据 auto_analyze_crawled_items 配置决定是否自动分析，也可以由管理员调用 /api/analyze/unprocessed 对历史未分析数据进行补分析。分析时系统使用 ThreadPoolExecutor 按 analysis_max_workers 并行处理多条帖子，分析完成后将 analysis、analysis_status、analysis_at 等字段更新回数据库。
+
+权限控制方面，系统通过登录接口区分普通用户和管理员。普通用户主要访问舆情监测、风险分析、个人追踪和采集申请功能；管理员则可以进入后台管理端。后端通过 require_admin 对采集控制、平台管理、账号管理、系统设置和数据库管理等接口进行校验，避免普通用户误操作核心配置。整体来看，后端不仅负责接口转发，还承担了数据统一、任务调度、并发分析、权限隔离和异常兼容等关键职责。

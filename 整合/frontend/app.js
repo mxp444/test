@@ -6,28 +6,42 @@ const state = {
   role: "user",
   user: "",
   displayName: "",
+  phone: "",
+  department: "",
+  avatarUrl: "",
+  avatarPendingFile: null,
+  avatarPendingPreview: "",
   items: [],
   watchlist: [],
   watchTotal: 0,
   sources: [],
   status: {},
+  logHistory: [],
+  activeLogHistoryId: "current",
   health: null,
   platformSettings: { platforms: {}, options: [], known_platforms: [], source_applications: [] },
+  selectedPlatforms: [],
   crawlRules: { categories: [] },
   systemSettings: { runtime: {}, engine_options: [], paths: {}, database: {}, platforms: [] },
   accounts: [],
   userManagement: { users: [], role_permissions: {}, departments: {}, roles: {}, activities: [] },
+  database: { databases: [], selectedDb: "test", selectedCollection: "", collections: [], documents: [], indexes: [], total: 0, skip: 0, limit: 20, filterText: "{}", sortText: "{ \"_id\": -1 }", editingId: "", activeTab: "documents", showOptions: false, viewMode: "list" },
+  databaseRootCollapsed: false,
+  collapsedDatabases: {},
   expandedCrawlRules: {},
   feedFilter: "all",
   activeView: "home",
   settingsDirty: false,
+  systemSettingsDirty: false,
   activeSettingsPlatformId: "",
   monitorLimit: localStorage.getItem("monitorLimit") || "20",
   riskAnalysisFilter: "medium-high",
   expandedAccount: "",
+  collapsedNavGroups: { front: false, admin: false },
+  accountMenuOpen: false,
 };
 
-const views = ["home", "collection", "monitor", "tracking", "risk", "profile", "admin-platforms", "admin-tasks", "admin-models", "admin-logs", "admin-users", "admin-user-management", "admin-settings"];
+const views = ["home", "collection", "monitor", "tracking", "risk", "profile", "admin-platforms", "admin-tasks", "admin-models", "admin-logs", "admin-database", "admin-users", "admin-user-management", "admin-settings"];
 const adminViews = new Set(views.filter((view) => view.startsWith("admin-")));
 const riskTypes = ["虚假宣传风险", "非法集资风险", "金融诈骗风险", "负面舆情风险", "投诉维权风险", "恶意营销风险", "其他风险"];
 const sentimentTypes = ["负面", "中性", "正面"];
@@ -62,6 +76,23 @@ function bindEvents() {
     $("#togglePasswordBtn").textContent = shouldShow ? "隐藏密码" : "展示密码";
   });
   $("#logoutBtn")?.addEventListener("click", logout);
+  $("#accountMenuBtn")?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    toggleAccountMenu();
+  });
+  $("#accountProfileLink")?.addEventListener("click", (event) => {
+    event.preventDefault();
+    toggleAccountMenu(false);
+    switchView("profile");
+  });
+  document.addEventListener("click", (event) => {
+    const root = $("#accountMenu");
+    if (!root || root.contains(event.target)) return;
+    toggleAccountMenu(false);
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") toggleAccountMenu(false);
+  });
   updateLoginButtonState();
 
   $$(".nav-link[data-view]").forEach((link) => {
@@ -70,16 +101,43 @@ function bindEvents() {
       switchView(link.dataset.view);
     });
   });
+  $$("[data-nav-toggle]").forEach((button) => {
+    button.addEventListener("click", () => toggleNavGroup(button.dataset.navToggle));
+  });
 
   $("#refreshBtn")?.addEventListener("click", refreshAll);
   $("#toggleBtn")?.addEventListener("click", toggleCrawl);
   $("#analyzeOldBtn")?.addEventListener("click", analyzeOldItems);
-  $("#saveSettingsBtn")?.addEventListener("click", savePlatformSettings);
-  $("#saveSystemSettingsBtn")?.addEventListener("click", saveSystemSettings);
+  $("#clearLogsBtn")?.addEventListener("click", clearCurrentLogs);
+  $("#runDiagnosticsBtn")?.addEventListener("click", runCrawlerDiagnostics);
+  $("#platformSelector")?.addEventListener("change", (event) => {
+    if (event.target.matches("input[name='platform']")) {
+      state.selectedPlatforms = $$("input[name='platform']:checked").map((input) => input.value);
+    }
+  });
+  $("#logHistorySelect")?.addEventListener("change", (event) => {
+    state.activeLogHistoryId = event.target.value || "current";
+    renderLogPanel();
+  });
+  $("#saveSettingsBtn")?.addEventListener("click", () => savePlatformSettings());
+  $("#systemSettings")?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-system-save]");
+    if (button) saveSystemSettings(button.dataset.systemSave);
+  });
+  $("#systemSettings")?.addEventListener("input", () => {
+    state.systemSettingsDirty = true;
+  });
+  $("#systemSettings")?.addEventListener("change", () => {
+    state.systemSettingsDirty = true;
+  });
   $("#resetEngineBtn")?.addEventListener("click", resetAnalysisEngine);
   $("#sourceForm")?.addEventListener("submit", saveCollectionSource);
   $("#resetSourceBtn")?.addEventListener("click", resetSourceForm);
   $("#profileForm")?.addEventListener("submit", saveProfile);
+  $("#profileAvatarChooseBtn")?.addEventListener("click", () => $("#profileAvatarInput")?.click());
+  $("#profileAvatarInput")?.addEventListener("change", handleAvatarSelection);
+  $("#profileAvatarSaveBtn")?.addEventListener("click", saveAvatar);
+  $("#profileAvatarDeleteBtn")?.addEventListener("click", deleteAvatar);
   $("#passwordForm")?.addEventListener("submit", savePassword);
   $("#searchForm")?.addEventListener("submit", (event) => {
     event.preventDefault();
@@ -135,8 +193,16 @@ function bindEvents() {
     if (rejectButton) reviewPlatformApplication(rejectButton.dataset.rejectSource, "reject");
   });
 
-  $("#platformSettingsList")?.addEventListener("input", () => {
+  $("#platformSettingsList")?.addEventListener("input", (event) => {
+    updatePlatformSettingDraft(event.target);
     state.settingsDirty = true;
+    updateSettingsSaveState();
+  });
+
+  $("#platformSettingsList")?.addEventListener("change", (event) => {
+    updatePlatformSettingDraft(event.target);
+    state.settingsDirty = true;
+    updateSettingsSaveState();
   });
 
   $("#platformSettingsList")?.addEventListener("click", (event) => {
@@ -145,6 +211,7 @@ function bindEvents() {
   });
 
   $("#platformSettingsSelect")?.addEventListener("change", (event) => {
+    readActivePlatformSettingsIntoState();
     state.activeSettingsPlatformId = event.target.value;
     renderPlatformSettingsCards();
   });
@@ -169,6 +236,72 @@ function bindEvents() {
     if (toggle) toggleAccount(toggle.dataset.accountToggle);
     if (reset) resetAccountPassword(reset.dataset.accountReset);
   });
+
+  $("#dbRefreshBtn")?.addEventListener("click", refreshDatabaseWorkbench);
+  $("#dbTreeSearch")?.addEventListener("input", renderDatabaseTree);
+  $("#databaseTree")?.addEventListener("click", (event) => {
+    const rootAdd = event.target.closest("[data-db-root-add]");
+    const rootToggle = event.target.closest("[data-db-root-toggle]");
+    const dbToggle = event.target.closest("[data-db-toggle]");
+    const dbCreateCollection = event.target.closest("[data-db-create-collection]");
+    const dbDrop = event.target.closest("[data-db-drop]");
+    const collectionDrop = event.target.closest("[data-db-drop-collection]");
+    const dbButton = event.target.closest("[data-db-name]");
+    const collectionButton = event.target.closest("[data-db-collection]");
+    if (rootAdd) {
+      createDatabaseFromRoot();
+    } else if (rootToggle) {
+      state.databaseRootCollapsed = !state.databaseRootCollapsed;
+      renderDatabaseTree();
+    } else if (dbCreateCollection) {
+      createDatabaseCollection(dbCreateCollection.dataset.dbCreateCollection);
+    } else if (dbDrop) {
+      dropDatabase(dbDrop.dataset.dbDrop);
+    } else if (collectionDrop) {
+      dropDatabaseCollection(collectionDrop.dataset.dbName, collectionDrop.dataset.dbDropCollection);
+    } else if (collectionButton) {
+      selectDatabaseCollection(collectionButton.dataset.dbName, collectionButton.dataset.dbCollection);
+    } else if (dbToggle) {
+      toggleDatabaseCollapsed(dbToggle.dataset.dbToggle);
+    } else if (dbButton) {
+      selectDatabase(dbButton.dataset.dbName);
+    }
+  });
+  $("#databaseCollectionsPanel")?.addEventListener("click", (event) => {
+    const collection = event.target.closest("[data-open-collection]");
+    if (collection) selectDatabaseCollection(collection.dataset.openDb, collection.dataset.openCollection);
+  });
+  $("#databaseDocumentsPanel")?.addEventListener("click", (event) => {
+    const edit = event.target.closest("[data-db-edit]");
+    const del = event.target.closest("[data-db-delete]");
+    const prev = event.target.closest("[data-db-prev]");
+    const next = event.target.closest("[data-db-next]");
+    const query = event.target.closest("[data-db-query]");
+    const add = event.target.closest("[data-db-add-document]");
+    const reset = event.target.closest("[data-db-reset]");
+    const clear = event.target.closest("[data-db-clear-documents]");
+    if (edit) editDatabaseDocument(edit.dataset.dbEdit);
+    if (del) deleteDatabaseDocument(del.dataset.dbDelete);
+    if (prev) pageDatabaseDocuments(-1);
+    if (next) pageDatabaseDocuments(1);
+    if (query) queryDatabaseDocuments();
+    if (add) newDatabaseDocument();
+    if (reset) resetDatabaseQuery();
+    if (clear) clearDatabaseDocuments();
+  });
+  $("#databaseDocumentsPanel")?.addEventListener("input", (event) => {
+    if (event.target.id === "dbFilterInput") state.database.filterText = event.target.value;
+    if (event.target.id === "dbFilterInput") renderDatabaseQueryButtons();
+  });
+  $("#databaseDocumentsPanel")?.addEventListener("change", (event) => {
+    if (event.target.id === "dbLimitSelect") changeDatabaseLimit(event.target.value);
+  });
+  $("#dbModalCloseBtn")?.addEventListener("click", closeDatabaseModal);
+  $("#dbSaveDocumentBtn")?.addEventListener("click", saveDatabaseDocument);
+  $("#dbClearEditorBtn")?.addEventListener("click", clearDatabaseEditor);
+  $("#dbModal")?.addEventListener("click", (event) => {
+    if (event.target.id === "dbModal") closeDatabaseModal();
+  });
 }
 
 function headers() {
@@ -184,7 +317,7 @@ async function fetchJson(url, options = {}) {
 
 async function refreshAll() {
   if (!state.loggedIn) return;
-  await Promise.allSettled([loadHealth(), loadStatus(), loadItems(), loadWatchlist(), loadCollectionSources(), loadPlatformSettings(), loadCrawlRules(), loadSystemSettings(), loadAccounts(), loadUserManagement()]);
+  await Promise.allSettled([loadHealth(), loadStatus(), loadLogHistory(), loadItems(), loadWatchlist(), loadCollectionSources(), loadPlatformSettings(), loadCrawlRules(), loadSystemSettings(), loadAccounts(), loadUserManagement()]);
   renderAll();
 }
 
@@ -201,6 +334,16 @@ async function loadStatus() {
     state.status = await fetchJson("/api/crawl/status");
   } catch (error) {
     state.status = { running: false, logs: [], error: error.message };
+  }
+}
+
+async function loadLogHistory() {
+  if (state.role !== "admin") return;
+  try {
+    const data = await fetchJson("/api/crawl/log-history");
+    state.logHistory = data.items || [];
+  } catch {
+    state.logHistory = [];
   }
 }
 
@@ -254,7 +397,7 @@ async function loadCrawlRules() {
 }
 
 async function loadSystemSettings() {
-  if (state.role !== "admin") return;
+  if (state.role !== "admin" || state.systemSettingsDirty) return;
   try {
     state.systemSettings = await fetchJson("/api/admin/system-settings");
   } catch {
@@ -281,6 +424,65 @@ async function loadUserManagement() {
   }
 }
 
+async function loadDatabaseOverview() {
+  if (state.role !== "admin") return;
+  try {
+    const data = await fetchJson("/api/admin/database/overview");
+    state.database.databases = data.databases || [];
+    if (!state.database.selectedDb && state.database.databases.length) {
+      state.database.selectedDb = state.database.databases[0].name;
+    }
+    const current = state.database.databases.find((db) => db.name === state.database.selectedDb);
+    state.database.collections = current?.collections || [];
+  } catch {
+    state.database.databases = [];
+    state.database.collections = [];
+  }
+}
+
+async function loadDatabaseCollections(dbName = state.database.selectedDb) {
+  if (state.role !== "admin" || !dbName) return;
+  try {
+    const data = await fetchJson(`/api/admin/database/collections?db=${encodeURIComponent(dbName)}`);
+    state.database.selectedDb = data.db;
+    state.database.collections = data.collections || [];
+  } catch (error) {
+    window.alert(error.message);
+  }
+}
+
+async function loadDatabaseDocuments() {
+  if (state.role !== "admin" || !state.database.selectedDb || !state.database.selectedCollection) return;
+  const params = new URLSearchParams({
+    db: state.database.selectedDb,
+    collection: state.database.selectedCollection,
+    filter: state.database.filterText || "{}",
+    sort: state.database.sortText || "{}",
+    limit: String(state.database.limit || 20),
+    skip: String(state.database.skip || 0),
+  });
+  try {
+    const data = await fetchJson(`/api/admin/database/documents?${params}`);
+    state.database.documents = data.documents || [];
+    state.database.total = data.total || 0;
+    state.database.skip = data.skip || 0;
+    state.database.limit = data.limit || state.database.limit || 20;
+  } catch (error) {
+    window.alert(error.message);
+  }
+}
+
+async function loadDatabaseIndexes() {
+  if (state.role !== "admin" || !state.database.selectedDb || !state.database.selectedCollection) return;
+  const params = new URLSearchParams({ db: state.database.selectedDb, collection: state.database.selectedCollection });
+  try {
+    const data = await fetchJson(`/api/admin/database/indexes?${params}`);
+    state.database.indexes = data.indexes || [];
+  } catch {
+    state.database.indexes = [];
+  }
+}
+
 function renderAll() {
   renderHealth();
   renderTaskControl();
@@ -303,10 +505,57 @@ function applyRole() {
   document.body.dataset.role = state.role;
   document.body.classList.toggle("is-authenticated", state.loggedIn);
   $$(".admin-only").forEach((el) => el.classList.toggle("is-hidden", state.role !== "admin"));
-  $("#currentUserLabel").textContent = state.loggedIn
-    ? `${state.displayName || state.user} · ${state.role === "admin" ? "管理员" : "普通用户"}`
-    : "未登录";
+  updateNavGroupState();
+  renderHeaderAccount();
   renderProfile();
+}
+
+function renderHeaderAccount() {
+  const name = state.loggedIn ? (state.displayName || state.user || "未登录") : "未登录";
+  const roleText = state.loggedIn ? (state.role === "admin" ? "Admin" : "User") : "Guest";
+  const emailText = state.loggedIn ? (state.user || "未设置邮箱") : "未登录";
+  const avatar = getAvatarText(name);
+  const imageUrl = currentAvatarUrl();
+  const avatarEl = $("#accountMenuAvatar");
+  if (avatarEl) {
+    avatarEl.innerHTML = "";
+    avatarEl.classList.toggle("has-image", Boolean(imageUrl));
+    if (imageUrl) {
+      const img = document.createElement("img");
+      img.src = imageUrl;
+      img.alt = "用户头像";
+      avatarEl.appendChild(img);
+    } else {
+      avatarEl.textContent = avatar;
+    }
+  }
+  $("#accountMenuName").textContent = name;
+  $("#accountMenuRole").textContent = roleText;
+  $("#accountMenuPanelName").textContent = name;
+  $("#accountMenuPanelEmail").textContent = emailText;
+  toggleAccountMenu(false);
+}
+
+function toggleAccountMenu(forceOpen) {
+  const shouldOpen = typeof forceOpen === "boolean" ? forceOpen : !state.accountMenuOpen;
+  state.accountMenuOpen = shouldOpen;
+  $("#accountMenuBtn")?.setAttribute("aria-expanded", String(shouldOpen));
+  $("#accountMenuPanel")?.classList.toggle("is-hidden", !shouldOpen);
+}
+
+function toggleNavGroup(group) {
+  if (!group || !(group in state.collapsedNavGroups)) return;
+  state.collapsedNavGroups[group] = !state.collapsedNavGroups[group];
+  updateNavGroupState();
+}
+
+function updateNavGroupState() {
+  $$("[data-nav-group]").forEach((groupEl) => {
+    const group = groupEl.dataset.navGroup;
+    const collapsed = Boolean(state.collapsedNavGroups[group]);
+    groupEl.classList.toggle("is-collapsed", collapsed);
+    groupEl.querySelector("[data-nav-toggle]")?.setAttribute("aria-expanded", String(!collapsed));
+  });
 }
 
 function switchView(view) {
@@ -314,6 +563,7 @@ function switchView(view) {
     state.activeView = defaultViewForRole();
     return;
   }
+  if (view === "summary") view = "home";
   if (view === "search") view = "monitor";
   if (view === "warning") view = "risk";
   const target = views.includes(view) ? view : "home";
@@ -324,7 +574,8 @@ function switchView(view) {
   state.activeView = target;
   views.forEach((name) => $(`#${name}View`)?.classList.toggle("is-active", name === target));
   $$(".nav-link[data-view]").forEach((link) => link.classList.toggle("is-active", link.dataset.view === target));
-  location.hash = target;
+  location.hash = target === "home" ? "summary" : target;
+  if (target === "admin-database") refreshDatabaseWorkbench();
 }
 
 function restoreSession() {
@@ -335,6 +586,9 @@ function restoreSession() {
     state.user = session.username;
     state.role = session.role === "admin" ? "admin" : "user";
     state.displayName = session.display_name || session.displayName || session.username;
+    state.phone = session.phone || "";
+    state.department = session.department || "";
+    state.avatarUrl = session.avatar_url || "";
   } catch {
     localStorage.removeItem("monitorSession");
   }
@@ -400,6 +654,11 @@ function finishLogin(user) {
   state.user = user.username;
   state.role = user.role === "admin" ? "admin" : "user";
   state.displayName = user.display_name || user.username;
+  state.phone = user.phone || "";
+  state.department = user.department || "";
+  state.avatarUrl = user.avatar_url || "";
+  state.avatarPendingFile = null;
+  state.avatarPendingPreview = "";
   localStorage.setItem("monitorSession", JSON.stringify(user));
   applyRole();
   switchView(defaultViewForRole());
@@ -412,6 +671,11 @@ function logout() {
   state.role = "user";
   state.user = "";
   state.displayName = "";
+  state.phone = "";
+  state.department = "";
+  state.avatarUrl = "";
+  state.avatarPendingFile = null;
+  state.avatarPendingPreview = "";
   applyRole();
   location.hash = "";
 }
@@ -426,25 +690,62 @@ function renderHealth() {
 
 function renderTaskControl() {
   const status = state.status || {};
+  const activeCrawling = Boolean(status.running && !status.paused);
+  const diagnosticsButton = $("#runDiagnosticsBtn");
+  if (diagnosticsButton) diagnosticsButton.disabled = activeCrawling;
   $("#runState").textContent = status.running ? (status.paused ? "已暂停" : "采集中") : "空闲";
   $("#runState").className = status.running ? (status.paused ? "badge paused" : "badge") : "badge idle";
   $("#toggleBtn").textContent = status.running && !status.paused ? "暂停" : "启动采集";
   const stats = status.current_stats || status.last_result || {};
   $("#lastResult").textContent = `写入 ${stats.inserted || 0}，重复 ${stats.skipped || 0}，未命中 ${stats.unmatched || 0}，丢弃 ${stats.discarded || 0}`;
   $("#lastError").textContent = status.last_error ? `错误：${status.last_error}` : "";
-  $("#logsPanel").textContent = status.logs?.length ? status.logs.join("\n") : "等待爬取任务启动...";
-  $("#logsMeta").textContent = status.running ? `最近 ${status.logs?.length || 0} 条日志` : "当前没有运行任务";
+  renderLogPanel();
+  const runningSelected = new Set(status.selected_platforms || []);
+  const draftSelected = new Set(state.selectedPlatforms || []);
+  const useRunningSelection = Boolean(activeCrawling && runningSelected.size);
+  const useDraftSelection = Boolean(!useRunningSelection && draftSelected.size);
   $("#platformSelector").innerHTML = (state.platformSettings.options || []).map((option) => `
     <label class="${option.available ? "" : "is-pending"}">
-      <input type="checkbox" name="platform" value="${escapeHtml(option.id)}" ${option.selected ? "checked" : ""} ${option.available ? "" : "disabled"}>
+      <input type="checkbox" name="platform" value="${escapeHtml(option.id)}" ${(useRunningSelection ? runningSelected.has(option.id) : (useDraftSelection ? draftSelected.has(option.id) : option.selected)) ? "checked" : ""} ${option.available && !activeCrawling ? "" : "disabled"}>
       ${escapeHtml(option.label)}
     </label>
   `).join("");
+  if (useRunningSelection) {
+    state.selectedPlatforms = Array.from(runningSelected);
+  } else if (!useDraftSelection) {
+    state.selectedPlatforms = (state.platformSettings.options || []).filter((option) => option.available && option.selected).map((option) => option.id);
+  }
+}
+
+function renderLogPanel() {
+  const select = $("#logHistorySelect");
+  const panel = $("#logsPanel");
+  const meta = $("#logsMeta");
+  if (!select || !panel || !meta) return;
+  const currentValue = state.activeLogHistoryId || "current";
+  select.innerHTML = `<option value="current">当前控制台</option>${(state.logHistory || []).map((item) => {
+    const label = `${item.saved_at || ""} · ${item.event_label || "历史日志"} · ${(item.logs || []).length} 条`;
+    return `<option value="${escapeHtml(item.id)}">${escapeHtml(label)}</option>`;
+  }).join("")}`;
+  select.value = (currentValue === "current" || (state.logHistory || []).some((item) => item.id === currentValue)) ? currentValue : "current";
+  state.activeLogHistoryId = select.value;
+  if (state.activeLogHistoryId !== "current") {
+    const item = (state.logHistory || []).find((entry) => entry.id === state.activeLogHistoryId);
+    const logs = item?.logs || [];
+    panel.textContent = logs.length ? logs.join("\n") : "该历史记录暂无日志内容。";
+    meta.textContent = item ? `${item.event_label || "历史日志"}，保存于 ${item.saved_at || "--"}` : "历史记录不存在";
+    return;
+  }
+  const status = state.status || {};
+  const logs = status.logs || [];
+  panel.textContent = logs.length ? logs.join("\n") : "等待爬取任务启动...";
+  meta.textContent = status.running ? `当前 ${logs.length} 条日志` : (logs.length ? `当前 ${logs.length} 条日志` : "当前没有运行任务");
 }
 
 async function toggleCrawl() {
   try {
     const selected = $$("input[name='platform']:checked").map((input) => input.value);
+    state.selectedPlatforms = selected;
     if (state.status.running && !state.status.paused) {
       await fetchJson("/api/crawl/pause", { method: "POST", body: "{}" });
     } else {
@@ -466,6 +767,35 @@ async function analyzeOldItems() {
   }
 }
 
+async function clearCurrentLogs() {
+  try {
+    const data = await fetchJson("/api/crawl/logs/clear", { method: "POST", body: "{}" });
+    state.status = data.status || state.status || {};
+    state.activeLogHistoryId = "current";
+    await loadLogHistory();
+    renderLogPanel();
+  } catch (error) {
+    window.alert(error.message);
+  }
+}
+
+async function runCrawlerDiagnostics() {
+  try {
+    const data = await fetchJson("/api/crawl/diagnostics", { method: "POST", body: "{}" });
+    state.status = data.status || state.status || {};
+    state.activeLogHistoryId = "current";
+    renderLogPanel();
+    setTimeout(loadStatusAndRenderLogs, 900);
+  } catch (error) {
+    window.alert(error.message);
+  }
+}
+
+async function loadStatusAndRenderLogs() {
+  await loadStatus();
+  renderLogPanel();
+}
+
 function renderHome() {
   const highRisk = highRiskItems();
   const platforms = new Set(state.items.map((item) => item.platform).filter(Boolean));
@@ -475,8 +805,10 @@ function renderHome() {
     ["高风险舆情", highRisk.length],
     ["涉及平台", platforms.size],
   ].map(([label, value]) => `<article class="overview-card"><span>${label}</span><strong>${value}</strong></article>`).join("");
-  $("#riskDistribution").innerHTML = renderBars(countBy(state.items, riskBucket), state.total || state.items.length || 1);
-  $("#platformDistribution").innerHTML = renderBars(countBy(state.items, (item) => platformLabel(item.platform)), state.total || state.items.length || 1);
+  $("#dailyTrendChart").innerHTML = renderLineChart(dailyTrend(state.items, 14));
+  $("#dailyTrendMeta").textContent = `最近14天，累计 ${state.items.length} 条`;
+  $("#riskDistribution").innerHTML = renderDonutChart(countBy(state.items, riskBucket));
+  $("#platformDistribution").innerHTML = renderDonutChart(countBy(state.items, (item) => platformLabel(item.platform)));
   $("#homeMeta").textContent = `展示 ${Math.min(6, highRisk.length)} 条`;
   $("#homeHighRiskItems").innerHTML = renderCompactRows(highRisk.slice(0, 6));
 }
@@ -514,8 +846,11 @@ function resetSearchRules() {
 }
 
 function renderRiskAnalysis() {
-  $("#riskTypeChart").innerHTML = renderBars(countBy(state.items, inferRiskType), state.total || state.items.length || 1);
-  $("#sentimentChart").innerHTML = renderBars(countBy(state.items, inferSentiment), state.total || state.items.length || 1);
+  const riskItems = state.items.filter((item) => ["中高风险", "高风险"].includes(riskBucket(item)));
+  $("#riskTrendChart").innerHTML = renderLineChart(dailyTrend(riskItems, 14));
+  $("#riskTrendMeta").textContent = `最近14天，中高风险 ${riskItems.length} 条`;
+  $("#riskTypeChart").innerHTML = renderDonutChart(countBy(state.items, inferRiskType));
+  $("#sentimentChart").innerHTML = renderDonutChart(countBy(state.items, inferSentiment));
   renderRiskLevelFilters();
   const list = riskAnalysisItems();
   const label = riskFilterLabel(state.riskAnalysisFilter);
@@ -527,7 +862,23 @@ function renderProfile() {
   if (!$("#profileUsername")) return;
   $("#profileUsername").value = state.user || "";
   $("#profileDisplayName").value = state.displayName || "";
-  $("#profileRoleMeta").textContent = state.role === "admin" ? "管理员账号" : "普通用户账号";
+  $("#profilePhone").value = state.phone || "";
+  $("#profileDepartment").value = state.department || "";
+  const name = state.displayName || state.user || "未登录";
+  const avatar = getAvatarText(name);
+  $("#profileHeroName").textContent = name;
+  $("#profileHeroAccount").textContent = state.user || "未登录";
+  $("#profileEmailBind").textContent = "当前未绑定邮箱";
+  renderProfileAvatar($("#profileAvatarLarge"), avatar, currentAvatarUrl());
+  renderProfileAvatar($("#profileAvatarMedium"), avatar, currentAvatarUrl());
+  $("#profileAvatarSaveBtn").disabled = !state.avatarPendingFile;
+  $("#profileAvatarHint").textContent = state.avatarPendingFile
+    ? `已选择 ${state.avatarPendingFile.name}，点击保存后生效。`
+    : (state.avatarUrl ? "当前使用上传头像，可重新上传或删除。" : "当前使用用户名首字作为头像，可上传图片作为个人头像。");
+  $("#profileRoleMeta").textContent = state.role === "admin" ? "管理员" : "用户";
+  $("#profileWatchCount").textContent = state.watchTotal || state.watchlist.length || 0;
+  $("#profilePlatformCount").textContent = new Set(state.items.map((item) => item.platform).filter(Boolean)).size || 0;
+  $("#profileRegisterTime").textContent = "2026年5月";
 }
 
 async function saveProfile(event) {
@@ -537,19 +888,84 @@ async function saveProfile(event) {
   try {
     const data = await fetchJson("/api/account/profile", {
       method: "PUT",
-      body: JSON.stringify({ display_name: $("#profileDisplayName").value }),
+      body: JSON.stringify({
+        display_name: $("#profileDisplayName").value,
+        phone: $("#profilePhone").value,
+        department: $("#profileDepartment").value,
+      }),
     });
-    state.displayName = data.user.display_name;
-    localStorage.setItem(
-      "monitorSession",
-      JSON.stringify({ username: state.user, role: state.role, display_name: state.displayName }),
-    );
+    updateSessionUser(data.user);
     applyRole();
     message.textContent = "个人资料已保存。";
     message.className = "form-message ok";
   } catch (error) {
     message.textContent = error.message;
     message.className = "form-message error";
+  }
+}
+
+function handleAvatarSelection(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  if (!file.type.startsWith("image/")) {
+    window.alert("请选择图片文件。");
+    event.target.value = "";
+    return;
+  }
+  if (state.avatarPendingPreview) URL.revokeObjectURL(state.avatarPendingPreview);
+  state.avatarPendingFile = file;
+  state.avatarPendingPreview = URL.createObjectURL(file);
+  renderProfile();
+}
+
+async function saveAvatar() {
+  if (!state.avatarPendingFile) return;
+  const message = $("#profileMessage");
+  message.textContent = "";
+  const form = new FormData();
+  form.append("avatar", state.avatarPendingFile);
+  try {
+    const res = await fetch("/api/account/avatar", {
+      method: "POST",
+      headers: { "X-User-Role": state.role, "X-User-Name": state.user },
+      body: form,
+    });
+    const data = await res.json();
+    if (!res.ok || data.ok === false) throw new Error(data.error || "头像保存失败");
+    if (state.avatarPendingPreview) URL.revokeObjectURL(state.avatarPendingPreview);
+    state.avatarPendingFile = null;
+    state.avatarPendingPreview = "";
+    $("#profileAvatarInput").value = "";
+    updateSessionUser(data.user);
+    applyRole();
+    message.textContent = "头像已保存。";
+    message.className = "form-message ok";
+  } catch (error) {
+    message.textContent = error.message;
+    message.className = "form-message error";
+  }
+}
+
+async function deleteAvatar() {
+  if (!state.avatarUrl && !state.avatarPendingFile) return;
+  if (state.avatarPendingFile && !state.avatarUrl) {
+    if (state.avatarPendingPreview) URL.revokeObjectURL(state.avatarPendingPreview);
+    state.avatarPendingFile = null;
+    state.avatarPendingPreview = "";
+    $("#profileAvatarInput").value = "";
+    renderProfile();
+    return;
+  }
+  try {
+    const data = await fetchJson("/api/account/avatar", { method: "DELETE", body: "{}" });
+    if (state.avatarPendingPreview) URL.revokeObjectURL(state.avatarPendingPreview);
+    state.avatarPendingFile = null;
+    state.avatarPendingPreview = "";
+    $("#profileAvatarInput").value = "";
+    updateSessionUser(data.user);
+    applyRole();
+  } catch (error) {
+    window.alert(error.message);
   }
 }
 
@@ -891,7 +1307,7 @@ async function updateCollectionSourceStatus(id, status) {
 
 function renderAdminStatus() {
   $("#taskMeta").textContent = state.status.running ? "任务运行中" : "任务空闲";
-  $("#taskSummaryList").innerHTML = [
+  const totalRows = [
     ["运行状态", state.status.running ? (state.status.paused ? "已暂停" : "运行中") : "空闲"],
     ["平台数量", (state.status.selected_platforms || []).length || 0],
     ["累计写入", state.status.current_stats?.inserted || 0],
@@ -899,6 +1315,22 @@ function renderAdminStatus() {
     ["未命中", state.status.current_stats?.unmatched || 0],
     ["丢弃", state.status.current_stats?.discarded || 0],
   ].map(([label, value]) => `<div class="component-row"><span>${label}</span><strong>${value}</strong></div>`).join("");
+  const platformStats = state.status.platform_results || {};
+  const selected = state.status.selected_platforms || Object.keys(platformStats);
+  const platformRows = selected.length ? selected.map((platform) => {
+    const stats = platformStats[platform] || {};
+    return `<div class="platform-result-row">
+      <strong>${escapeHtml(platformLabel(platform))}</strong>
+      <span>写入 ${Number(stats.inserted || 0)}</span>
+      <span>重复 ${Number(stats.skipped || 0)}</span>
+      <span>未命中 ${Number(stats.unmatched || 0)}</span>
+      <span>丢弃 ${Number(stats.discarded || 0)}</span>
+    </div>`;
+  }).join("") : `<p class="status-empty">暂无平台级执行结果。</p>`;
+  $("#taskSummaryList").innerHTML = `
+    <div class="task-result-total">${totalRows}</div>
+    <div class="task-result-platforms">${platformRows}</div>
+  `;
   $("#engineStatusText").textContent = state.health?.model_ready ? "已加载" : "待初始化";
   $("#healthStatusMirror").textContent = state.health?.success ? "在线" : "异常";
   $("#statusMeta").textContent = state.health?.success ? `组件 ${Object.keys(state.health.component_status || {}).length} 项` : "状态异常";
@@ -914,6 +1346,7 @@ function renderAdminSettings() {
 
 function renderSourceApplicationsPanel() {
   const list = (state.platformSettings.source_applications || []).filter((item) => !["已通过", "已配置"].includes(item.status));
+  $("#sourceApplicationAlert")?.classList.toggle("is-hidden", !list.length);
   $("#sourceApplicationsPanel").innerHTML = list.length ? list.map((item) => {
     return `<article class="platform-settings-card source-application-card source-application-summary-card">
       <div class="source-application-summary">
@@ -935,6 +1368,7 @@ function renderKnownPlatformCatalog() {
 function renderPlatformSettingsCards() {
   const entries = Object.values(state.platformSettings.platforms || {});
   $("#settingsStatusText").textContent = `当前共 ${entries.length} 个平台配置`;
+  updateSettingsSaveState();
   if (!entries.length) {
     $("#platformSettingsList").innerHTML = emptyCard("暂无平台配置。");
     return;
@@ -942,20 +1376,64 @@ function renderPlatformSettingsCards() {
   if (!entries.some((item) => item.id === state.activeSettingsPlatformId)) state.activeSettingsPlatformId = entries[0].id;
   $("#platformSettingsSelect").innerHTML = entries.map((item) => `<option value="${escapeHtml(item.id)}" ${item.id === state.activeSettingsPlatformId ? "selected" : ""}>${escapeHtml(item.label)}</option>`).join("");
   const config = entries.find((item) => item.id === state.activeSettingsPlatformId) || entries[0];
+  const cookieOverrideNote = config.runtime_cookie_override
+    ? `<p class="platform-settings-note warning">系统设置中存在 Cookie 覆盖，当前爬虫会优先使用覆盖 Cookie；清空覆盖后才会使用这里保存的 Cookie。</p>`
+    : "";
   $("#platformSettingsList").innerHTML = `
     <article class="platform-settings-card">
       <div class="platform-settings-head"><div><h3>${escapeHtml(config.label)}</h3><p class="platform-settings-note">${escapeHtml(config.description || "")}</p></div><span class="mini-badge ${config.available ? "ok" : "pending"}">${config.available ? "已接入" : "待接入"}</span></div>
       <div class="config-grid">
         <div class="field"><label>默认参与爬取</label><div class="toggle-field"><input type="checkbox" data-setting="${escapeHtml(config.id)}" data-field="selected" ${config.selected ? "checked" : ""} ${config.available ? "" : "disabled"}><span>任务启动时默认勾选</span></div></div>
         <div class="field"><label>需要图片</label><div class="toggle-field"><input type="checkbox" data-setting="${escapeHtml(config.id)}" data-field="require_images" ${config.require_images ? "checked" : ""}><span>仅保留满足图片要求的内容</span></div></div>
-        <div class="field full"><label>Cookie</label><textarea data-setting="${escapeHtml(config.id)}" data-field="cookie">${escapeHtml(config.cookie || "")}</textarea></div>
+        <div class="field full"><label>Cookie</label>${cookieOverrideNote}<textarea data-setting="${escapeHtml(config.id)}" data-field="cookie">${escapeHtml(config.cookie || "")}</textarea></div>
         <div class="field full"><label>关键词列表</label><textarea data-setting="${escapeHtml(config.id)}" data-field="keywords">${escapeHtml((config.keywords || []).join("\n"))}</textarea></div>
         <div class="field"><label>每个关键词最多页数</label><input type="number" min="1" max="1000" data-setting="${escapeHtml(config.id)}" data-field="max_pages" value="${escapeHtml(config.max_pages || 10)}"></div>
       </div>
     </article>`;
 }
 
+function renderPlatformSettingsCardsV2() {
+  const entries = Object.values(state.platformSettings.platforms || {});
+  $("#settingsStatusText").textContent = `当前共 ${entries.length} 个平台配置`;
+  updateSettingsSaveState();
+  if (!entries.length) {
+    $("#platformSettingsList").innerHTML = emptyCard("暂无平台配置。");
+    return;
+  }
+  if (!entries.some((item) => item.id === state.activeSettingsPlatformId)) state.activeSettingsPlatformId = entries[0].id;
+  $("#platformSettingsSelect").innerHTML = entries.map((item) => `<option value="${escapeHtml(item.id)}" ${item.id === state.activeSettingsPlatformId ? "selected" : ""}>${escapeHtml(item.label)}</option>`).join("");
+  const config = entries.find((item) => item.id === state.activeSettingsPlatformId) || entries[0];
+  const cookieOverrideNote = config.runtime_cookie_override
+    ? `<p class="platform-settings-note warning">系统设置中存在 Cookie 覆盖，当前爬虫会优先使用覆盖 Cookie；清空覆盖后才会使用这里保存的 Cookie。</p>`
+    : "";
+  $("#platformSettingsList").innerHTML = `
+    <article class="platform-settings-card">
+      <div class="platform-settings-head"><div><h3>${escapeHtml(config.label)}</h3><p class="platform-settings-note">${escapeHtml(config.description || "")}</p></div><span class="mini-badge ${config.available ? "ok" : "pending"}">${config.available ? "已接入" : "待接入"}</span></div>
+      <div class="config-grid">
+        <div class="field"><label>默认参与爬取</label><div class="toggle-field"><input type="checkbox" data-setting="${escapeHtml(config.id)}" data-field="selected" ${config.selected ? "checked" : ""} ${config.available ? "" : "disabled"}><span>任务启动时默认勾选</span></div></div>
+        <div class="field"><label>需要图片</label><div class="toggle-field"><input type="checkbox" data-setting="${escapeHtml(config.id)}" data-field="require_images" ${config.require_images ? "checked" : ""}><span>仅保留满足图片要求的内容</span></div></div>
+        <div class="field full"><label>Cookie</label>${cookieOverrideNote}<textarea data-setting="${escapeHtml(config.id)}" data-field="cookie">${escapeHtml(config.cookie || "")}</textarea></div>
+        <div class="field full"><label>关键词列表</label><textarea data-setting="${escapeHtml(config.id)}" data-field="keywords">${escapeHtml((config.keywords || []).join("\n"))}</textarea></div>
+        ${"discovery_keywords" in config ? `<div class="field full"><label>发现/搜索关键词</label><textarea data-setting="${escapeHtml(config.id)}" data-field="discovery_keywords">${escapeHtml((config.discovery_keywords || []).join("\n"))}</textarea></div>` : ""}
+        ${"forums" in config ? `<div class="field full"><label>贴吧/分区发现源</label><textarea data-setting="${escapeHtml(config.id)}" data-field="forums">${escapeHtml((config.forums || []).join("\n"))}</textarea></div>` : ""}
+        ${"recent_days" in config ? `<div class="field"><label>最近天数</label><input type="number" min="1" max="3650" data-setting="${escapeHtml(config.id)}" data-field="recent_days" value="${escapeHtml(config.recent_days || 60)}"></div>` : ""}
+        <div class="field"><label>每个关键词最多页数</label><input type="number" min="1" max="1000" data-setting="${escapeHtml(config.id)}" data-field="max_pages" value="${escapeHtml(config.max_pages || 10)}"></div>
+        ${"note_time" in config ? `<div class="field"><label>小红书时间范围</label><input type="number" min="0" max="4" data-setting="${escapeHtml(config.id)}" data-field="note_time" value="${escapeHtml(config.note_time || 0)}"></div>` : ""}
+      </div>
+    </article>`;
+}
+
+renderPlatformSettingsCards = renderPlatformSettingsCardsV2;
+
+function updateSettingsSaveState() {
+  const button = $("#saveSettingsBtn");
+  if (!button) return;
+  button.disabled = !state.settingsDirty;
+  button.classList.toggle("is-dirty", state.settingsDirty);
+}
+
 async function savePlatformSettings() {
+  readActivePlatformSettingsIntoState();
   const payload = { added_platforms: [], platforms: {} };
   Object.values(state.platformSettings.platforms || {}).forEach((config) => {
     payload.platforms[config.id] = {
@@ -976,11 +1454,47 @@ async function savePlatformSettings() {
     state.platformSettings = await fetchJson("/api/platform-settings", { method: "POST", body: JSON.stringify(payload) });
     state.settingsDirty = false;
     renderAdminSettings();
+    renderTaskControl();
     window.alert("平台配置已保存。");
   } catch (error) {
     window.alert(error.message);
   }
 }
+
+async function savePlatformSettingsV2() {
+  readActivePlatformSettingsIntoState();
+  const payload = { added_platforms: [], platforms: {} };
+  Object.values(state.platformSettings.platforms || {}).forEach((config) => {
+    payload.platforms[config.id] = {
+      selected: Boolean(config.selected),
+      require_images: Boolean(config.require_images),
+      cookie: config.cookie || "",
+      keywords: config.keywords || [],
+      discovery_keywords: config.discovery_keywords || [],
+      forums: config.forums || [],
+      recent_days: Number(config.recent_days || 60),
+      max_pages: Number(config.max_pages || 10),
+      note_time: Number(config.note_time || 0),
+    };
+  });
+  const corePlatformIds = new Set(["weibo", "douyin", "tieba", "xhs"]);
+  const knownAdded = (state.platformSettings.known_platforms || []).filter((item) => item.added).map((item) => item.id);
+  const approvedAdded = Object.values(state.platformSettings.platforms || {})
+    .filter((item) => !corePlatformIds.has(item.id) && !(state.platformSettings.known_platforms || []).some((known) => known.id === item.id))
+    .map((item) => item.id);
+  payload.added_platforms = [...new Set([...knownAdded, ...approvedAdded])];
+  try {
+    state.platformSettings = await fetchJson("/api/platform-settings", { method: "POST", body: JSON.stringify(payload) });
+    state.settingsDirty = false;
+    renderAdminSettings();
+    renderTaskControl();
+    window.alert("平台配置已保存。");
+  } catch (error) {
+    window.alert(error.message);
+  }
+}
+
+savePlatformSettings = savePlatformSettingsV2;
 
 async function reviewPlatformApplication(id, status) {
   const config = {
@@ -1020,6 +1534,26 @@ function addKnownPlatform(id) {
 
 function removeKnownPlatform(id) {
   addKnownPlatform(id);
+}
+
+function updatePlatformSettingDraft(element) {
+  const id = element?.dataset?.setting;
+  const field = element?.dataset?.field;
+  if (!id || !field || !state.platformSettings.platforms?.[id]) return;
+  const value = element.type === "checkbox" ? element.checked : element.value;
+  if (field === "keywords" || field === "discovery_keywords" || field === "forums") {
+    state.platformSettings.platforms[id][field] = String(value || "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  } else if (field === "max_pages" || field === "recent_days" || field === "note_time") {
+    state.platformSettings.platforms[id][field] = Number(value || 0);
+  } else {
+    state.platformSettings.platforms[id][field] = value;
+  }
+}
+
+function readActivePlatformSettingsIntoState() {
+  const activeId = state.activeSettingsPlatformId;
+  if (!activeId || !state.platformSettings.platforms?.[activeId]) return;
+  $$(`[data-setting="${cssEscape(activeId)}"]`).forEach(updatePlatformSettingDraft);
 }
 
 function readSetting(id, field, type, fallback) {
@@ -1077,6 +1611,7 @@ function renderCrawlRules() {
 
 function renderSystemSettings() {
   if (state.role !== "admin" || !$("#systemSettings")) return;
+  if (state.systemSettingsDirty) return;
   const settings = state.systemSettings || {};
   const runtime = settings.runtime || {};
   const engineOptions = settings.engine_options || [];
@@ -1085,7 +1620,7 @@ function renderSystemSettings() {
   $("#systemSettingsMeta").textContent = runtime.analysis_engine_file ? "已读取 runtime_config.json" : "未加载";
   $("#systemSettings").innerHTML = `
     <article class="admin-card system-setting-card">
-      <h3>分析引擎</h3>
+      <div class="system-card-head"><h3>分析引擎</h3><button class="primary" type="button" data-system-save="engine">保存分析引擎</button></div>
       <div class="system-form-grid">
         <label>分析实现文件
           <select id="sysEngineFile">
@@ -1106,8 +1641,7 @@ function renderSystemSettings() {
       </div>
     </article>
     <article class="admin-card system-setting-card">
-      <h3>平台 Cookie 覆盖</h3>
-      <p>这里保存到 runtime_config.json，会覆盖平台配置里的 Cookie，适合统一切换测试账号。</p>
+      <div class="system-card-head"><div><h3>平台 Cookie 覆盖</h3><p>这里保存到 runtime_config.json，会覆盖平台配置里的 Cookie，适合统一切换测试账号。</p></div><button class="primary" type="button" data-system-save="cookies">保存 Cookie</button></div>
       <div class="cookie-setting-list">
         ${platforms.map((platform) => `
           <label>${escapeHtml(platform.label || platform.id)}
@@ -1118,6 +1652,41 @@ function renderSystemSettings() {
     </article>
   `;
   renderSystemMaintenance();
+}
+
+function currentAvatarUrl() {
+  return state.avatarPendingPreview || state.avatarUrl || "";
+}
+
+function renderProfileAvatar(element, fallbackText, imageUrl) {
+  if (!element) return;
+  element.innerHTML = "";
+  element.classList.toggle("has-image", Boolean(imageUrl));
+  if (imageUrl) {
+    const img = document.createElement("img");
+    img.src = imageUrl;
+    img.alt = "用户头像";
+    element.appendChild(img);
+  } else {
+    element.textContent = fallbackText;
+  }
+}
+
+function updateSessionUser(user = {}) {
+  state.user = user.username || state.user;
+  state.role = user.role === "admin" ? "admin" : state.role;
+  state.displayName = user.display_name || state.displayName || state.user;
+  state.phone = user.phone || "";
+  state.department = user.department || "";
+  state.avatarUrl = user.avatar_url || "";
+  localStorage.setItem("monitorSession", JSON.stringify({
+    username: state.user,
+    role: state.role,
+    display_name: state.displayName,
+    phone: state.phone,
+    department: state.department,
+    avatar_url: state.avatarUrl,
+  }));
 }
 
 function renderSettingToggle(id, title, detail, checked) {
@@ -1146,26 +1715,48 @@ function renderSystemMaintenance() {
   `;
 }
 
-async function saveSystemSettings() {
+function buildSystemSettingsPayload(section = "all") {
+  const runtime = state.systemSettings?.runtime || {};
   const payload = {
-    analysis_engine_file: $("#sysEngineFile")?.value || "",
-    analysis_max_workers: Number($("#sysAnalysisWorkers")?.value || 1),
-    crawl_total_target: Number($("#sysCrawlTarget")?.value || 200),
-    auto_analyze_crawled_items: Boolean($("#sysAutoAnalyze")?.checked),
-    load_word_vector_model: Boolean($("#sysLoadWordVector")?.checked),
-    strict_runtime: Boolean($("#sysStrictRuntime")?.checked),
-    platform_cookies: {},
+    analysis_engine_file: section === "cookies" ? (runtime.analysis_engine_file || "") : ($("#sysEngineFile")?.value || runtime.analysis_engine_file || ""),
+    analysis_max_workers: section === "cookies" ? Number(runtime.analysis_max_workers || 1) : Number($("#sysAnalysisWorkers")?.value || runtime.analysis_max_workers || 1),
+    crawl_total_target: section === "cookies" ? Number(runtime.crawl_total_target || 200) : Number($("#sysCrawlTarget")?.value || runtime.crawl_total_target || 200),
+    auto_analyze_crawled_items: section === "cookies" ? Boolean(runtime.auto_analyze_crawled_items) : Boolean($("#sysAutoAnalyze")?.checked),
+    load_word_vector_model: section === "cookies" ? Boolean(runtime.load_word_vector_model) : Boolean($("#sysLoadWordVector")?.checked),
+    strict_runtime: section === "cookies" ? Boolean(runtime.strict_runtime) : Boolean($("#sysStrictRuntime")?.checked),
+    platform_cookies: { ...(runtime.platform_cookies || {}) },
   };
-  $$("[data-system-cookie]").forEach((textarea) => {
-    payload.platform_cookies[textarea.dataset.systemCookie] = textarea.value;
+  if (section !== "engine") {
+    $$("[data-system-cookie]").forEach((textarea) => {
+      payload.platform_cookies[textarea.dataset.systemCookie] = textarea.value;
+    });
+  }
+  return payload;
+}
+
+function applyRuntimeCookiesToPlatformState(cookies = {}) {
+  Object.values(state.platformSettings.platforms || {}).forEach((config) => {
+    const override = String(cookies[config.id] || "").trim();
+    config.runtime_cookie_override = override;
+    config.effective_cookie = override || config.cookie || "";
   });
+}
+
+async function saveSystemSettings(section = "all") {
+  const payload = buildSystemSettingsPayload(section);
   try {
     const data = await fetchJson("/api/admin/system-settings", {
       method: "PUT",
       body: JSON.stringify(payload),
     });
     state.systemSettings = { ...state.systemSettings, ...data };
-    window.alert("系统设置已保存。");
+    state.systemSettingsDirty = false;
+    if (section === "cookies") {
+      applyRuntimeCookiesToPlatformState(data.runtime?.platform_cookies || {});
+      renderAdminSettings();
+      renderTaskControl();
+    }
+    window.alert(section === "cookies" ? "平台 Cookie 覆盖已保存。" : "分析引擎设置已保存。");
     await refreshAll();
   } catch (error) {
     window.alert(error.message);
@@ -1177,11 +1768,432 @@ async function resetAnalysisEngine() {
   try {
     const data = await fetchJson("/api/admin/system-settings/reset-engine", { method: "POST", body: "{}" });
     state.systemSettings = { ...state.systemSettings, ...data };
+    state.systemSettingsDirty = false;
     window.alert("分析引擎已重置。");
     await refreshAll();
   } catch (error) {
     window.alert(error.message);
   }
+}
+
+async function refreshDatabaseWorkbench() {
+  if (state.role !== "admin") return;
+  await loadDatabaseOverview();
+  if (state.database.selectedDb) await loadDatabaseCollections(state.database.selectedDb);
+  if (state.database.selectedCollection) {
+    await loadDatabaseDocuments();
+    await loadDatabaseIndexes();
+  }
+  renderDatabaseWorkbench();
+}
+
+async function selectDatabase(dbName) {
+  state.database.selectedDb = dbName;
+  state.database.selectedCollection = "";
+  state.database.documents = [];
+  state.database.indexes = [];
+  state.database.skip = 0;
+  await loadDatabaseCollections(dbName);
+  renderDatabaseWorkbench();
+}
+
+async function selectDatabaseCollection(dbName, collectionName) {
+  state.database.selectedDb = dbName;
+  state.database.selectedCollection = collectionName;
+  state.database.skip = 0;
+  state.database.editingId = "";
+  await loadDatabaseCollections(dbName);
+  await loadDatabaseDocuments();
+  await loadDatabaseIndexes();
+  renderDatabaseWorkbench();
+}
+
+async function queryDatabaseDocuments() {
+  state.database.skip = 0;
+  await loadDatabaseDocuments();
+  renderDatabaseWorkbench();
+}
+
+function resetDatabaseQuery() {
+  state.database.filterText = "{}";
+  state.database.sortText = "{ \"_id\": -1 }";
+  state.database.limit = 20;
+  state.database.skip = 0;
+  loadDatabaseDocuments().then(renderDatabaseWorkbench);
+}
+
+async function pageDatabaseDocuments(direction) {
+  const limit = state.database.limit || 20;
+  state.database.skip = Math.max(0, (state.database.skip || 0) + direction * limit);
+  await loadDatabaseDocuments();
+  renderDatabaseWorkbench();
+}
+
+async function changeDatabaseLimit(value) {
+  const nextLimit = [10, 20, 50, 100].includes(Number(value)) ? Number(value) : 20;
+  state.database.limit = nextLimit;
+  state.database.skip = 0;
+  await loadDatabaseDocuments();
+  renderDatabaseWorkbench();
+}
+
+function toggleDatabaseCollapsed(dbName) {
+  state.collapsedDatabases[dbName] = !state.collapsedDatabases[dbName];
+  renderDatabaseTree();
+}
+
+function openDatabaseModal() {
+  $("#dbModal")?.classList.remove("is-hidden");
+}
+
+function closeDatabaseModal() {
+  $("#dbModal")?.classList.add("is-hidden");
+  $("#dbEditorMessage").textContent = "";
+}
+
+function newDatabaseDocument(render = true) {
+  if (!state.database.selectedCollection) {
+    window.alert("请先选择集合。");
+    return;
+  }
+  state.database.editingId = "";
+  const editor = $("#dbDocumentEditor");
+  if (editor) editor.value = "{\n  \"field\": \"value\"\n}";
+  $("#dbEditorTitle").textContent = "新增文档";
+  $("#dbSaveDocumentBtn").textContent = "插入文档";
+  $("#dbEditorMessage").textContent = "";
+  openDatabaseModal();
+  if (render) renderDatabaseWorkbench();
+}
+
+function clearDatabaseEditor() {
+  state.database.editingId = "";
+  $("#dbDocumentEditor").value = "";
+  $("#dbEditorTitle").textContent = "新增文档";
+  $("#dbSaveDocumentBtn").textContent = "插入文档";
+  $("#dbEditorMessage").textContent = "";
+}
+
+function editDatabaseDocument(docId) {
+  const doc = state.database.documents.find((item) => String(item._id) === String(docId));
+  if (!doc) return;
+  state.database.editingId = String(doc._id);
+  $("#dbDocumentEditor").value = JSON.stringify(doc, null, 2);
+  $("#dbEditorTitle").textContent = `编辑文档 ${shortText(docId, 10)}`;
+  $("#dbSaveDocumentBtn").textContent = "保存修改";
+  $("#dbEditorMessage").textContent = "";
+  openDatabaseModal();
+}
+
+async function saveDatabaseDocument() {
+  if (!state.database.selectedDb || !state.database.selectedCollection) {
+    window.alert("请先选择集合。");
+    return;
+  }
+  const text = $("#dbDocumentEditor")?.value || "";
+  let document;
+  try {
+    document = JSON.parse(text || "{}");
+  } catch (error) {
+    $("#dbEditorMessage").textContent = `JSON 格式错误：${error.message}`;
+    return;
+  }
+  const editingId = state.database.editingId;
+  try {
+    const url = editingId ? `/api/admin/database/documents/${encodeURIComponent(editingId)}` : "/api/admin/database/documents";
+    await fetchJson(url, {
+      method: editingId ? "PUT" : "POST",
+      body: JSON.stringify({
+        db: state.database.selectedDb,
+        collection: state.database.selectedCollection,
+        document,
+      }),
+    });
+    $("#dbEditorMessage").textContent = editingId ? "文档已保存。" : "文档已插入。";
+    closeDatabaseModal();
+    await loadDatabaseDocuments();
+    await loadDatabaseCollections(state.database.selectedDb);
+    await loadDatabaseOverview();
+    renderDatabaseWorkbench();
+  } catch (error) {
+    $("#dbEditorMessage").textContent = error.message;
+  }
+}
+
+async function deleteDatabaseDocument(docId) {
+  if (!window.confirm("确定删除该文档吗？此操作不可撤销。")) return;
+  try {
+    await fetchJson(`/api/admin/database/documents/${encodeURIComponent(docId)}`, {
+      method: "DELETE",
+      body: JSON.stringify({ db: state.database.selectedDb, collection: state.database.selectedCollection }),
+    });
+    if (state.database.editingId === docId) clearDatabaseEditor();
+    await loadDatabaseDocuments();
+    await loadDatabaseCollections(state.database.selectedDb);
+    await loadDatabaseOverview();
+    renderDatabaseWorkbench();
+  } catch (error) {
+    window.alert(error.message);
+  }
+}
+
+async function clearDatabaseDocuments() {
+  if (!state.database.selectedDb || !state.database.selectedCollection) return;
+  const target = `${state.database.selectedDb}.${state.database.selectedCollection}`;
+  const confirmText = window.prompt(`将删除 ${target} 中的全部文档，但保留集合和索引。请输入 CLEAR 确认：`);
+  if (confirmText !== "CLEAR") return;
+  try {
+    const data = await fetchJson("/api/admin/database/documents", {
+      method: "DELETE",
+      body: JSON.stringify({ db: state.database.selectedDb, collection: state.database.selectedCollection }),
+    });
+    window.alert(`已删除 ${data.deleted || 0} 条文档。`);
+    state.database.skip = 0;
+    await loadDatabaseDocuments();
+    await loadDatabaseCollections(state.database.selectedDb);
+    await loadDatabaseOverview();
+    renderDatabaseWorkbench();
+  } catch (error) {
+    window.alert(error.message);
+  }
+}
+
+async function createDatabaseFromRoot() {
+  const dbName = window.prompt("请输入新数据库名称");
+  if (!dbName) return;
+  const collection = window.prompt("MongoDB 创建数据库需要同时创建第一个集合，请输入集合名称", "default_collection");
+  if (!collection) return;
+  await createDatabaseCollection(dbName, collection);
+}
+
+async function createDatabaseCollection(dbName = state.database.selectedDb, collectionName = "") {
+  if (!dbName) return;
+  const collection = collectionName || window.prompt(`请输入 ${dbName} 下的新集合名称`);
+  if (!collection) return;
+  try {
+    await fetchJson("/api/admin/database/collections", {
+      method: "POST",
+      body: JSON.stringify({ db: dbName, collection }),
+    });
+    state.database.selectedDb = dbName;
+    state.database.selectedCollection = collection;
+    await refreshDatabaseWorkbench();
+  } catch (error) {
+    window.alert(error.message);
+  }
+}
+
+async function dropDatabase(dbName) {
+  if (!dbName) return;
+  const target = dbName;
+  const confirmText = window.prompt(`删除数据库会移除其中全部集合和文档。请输入 ${target} 确认删除：`);
+  if (confirmText !== target) return;
+  try {
+    await fetchJson("/api/admin/database/databases", {
+      method: "DELETE",
+      body: JSON.stringify({ db: dbName }),
+    });
+    if (state.database.selectedDb === dbName) {
+      state.database.selectedDb = "test";
+      state.database.selectedCollection = "";
+      state.database.documents = [];
+      state.database.indexes = [];
+    }
+    await refreshDatabaseWorkbench();
+  } catch (error) {
+    window.alert(error.message);
+  }
+}
+
+async function dropDatabaseCollection(dbName = state.database.selectedDb, collectionName = state.database.selectedCollection) {
+  if (!dbName || !collectionName) {
+    window.alert("请先选择要删除的集合。");
+    return;
+  }
+  const target = `${dbName}.${collectionName}`;
+  const confirmText = window.prompt(`删除集合会移除其中全部文档。请输入 ${target} 确认删除：`);
+  if (confirmText !== target) return;
+  try {
+    await fetchJson("/api/admin/database/collections", {
+      method: "DELETE",
+      body: JSON.stringify({ db: dbName, collection: collectionName }),
+    });
+    if (state.database.selectedDb === dbName && state.database.selectedCollection === collectionName) {
+      state.database.selectedCollection = "";
+      state.database.documents = [];
+      state.database.indexes = [];
+    }
+    await refreshDatabaseWorkbench();
+  } catch (error) {
+    window.alert(error.message);
+  }
+}
+
+function renderDatabaseWorkbench() {
+  if (state.role !== "admin" || !$("#databaseTree")) return;
+  renderDatabaseTree();
+  renderDatabaseCollections();
+  renderDatabaseDocuments();
+  renderDatabaseIndexes();
+}
+
+function renderDatabaseTree() {
+  const tree = $("#databaseTree");
+  if (!tree) return;
+  const keyword = ($("#dbTreeSearch")?.value || "").trim().toLowerCase();
+  const databases = state.database.databases || [];
+  const root = `<div class="db-root-row ${state.databaseRootCollapsed ? "is-collapsed" : ""}">
+    <button type="button" class="db-root-main" data-db-root-toggle><span class="tree-caret">${state.databaseRootCollapsed ? "▸" : "▾"}</span><span class="tree-icon">▣</span><span>localhost:27017</span></button>
+    <button type="button" class="db-icon-btn" title="新增数据库" data-db-root-add>+</button>
+  </div>`;
+  if (state.databaseRootCollapsed) {
+    tree.innerHTML = root;
+    return;
+  }
+  const body = databases.length ? databases.map((db) => {
+    const collections = (db.collections || []).filter((collection) => {
+      const haystack = `${db.name} ${collection.name}`.toLowerCase();
+      return !keyword || haystack.includes(keyword);
+    });
+    if (keyword && !collections.length && !db.name.toLowerCase().includes(keyword)) return "";
+    const collapsed = Boolean(state.collapsedDatabases[db.name]);
+    const isSystemDb = ["admin", "config", "local"].includes(db.name);
+    return `<div class="db-tree-db">
+      <div class="db-node-row ${db.name === state.database.selectedDb && !state.database.selectedCollection ? "is-active" : ""}">
+        <button type="button" class="db-toggle" data-db-toggle="${escapeHtml(db.name)}">${collapsed ? "▸" : "▾"}</button>
+        <button type="button" class="db-node-main" data-db-name="${escapeHtml(db.name)}"><span class="tree-icon">●</span><span>${escapeHtml(db.name)}</span></button>
+        <button type="button" class="db-icon-btn" title="新增集合" data-db-create-collection="${escapeHtml(db.name)}">+</button>
+        <button type="button" class="db-icon-btn danger" title="删除数据库" ${isSystemDb ? "disabled" : ""} data-db-drop="${escapeHtml(db.name)}">■</button>
+      </div>
+      <div class="db-tree-collections ${collapsed ? "is-collapsed" : ""}">
+        ${collections.map((collection) => `<div class="db-node-row collection-row ${db.name === state.database.selectedDb && collection.name === state.database.selectedCollection ? "is-active" : ""}">
+          <button type="button" class="db-node-main" data-db-name="${escapeHtml(db.name)}" data-db-collection="${escapeHtml(collection.name)}"><span class="tree-icon">▣</span><span>${escapeHtml(collection.name)}</span></button>
+          <span class="db-count-chip" title="文档数量">${Number(collection.documents || collection.document_count || 0).toLocaleString()}</span>
+          <button type="button" class="db-icon-btn danger" title="删除集合" ${isSystemDb ? "disabled" : ""} data-db-name="${escapeHtml(db.name)}" data-db-drop-collection="${escapeHtml(collection.name)}">■</button>
+        </div>`).join("")}
+      </div>
+    </div>`;
+  }).join("") : emptyTable("未连接到 MongoDB 或暂无数据库。");
+  tree.innerHTML = root + `<div class="db-root-children">${body}</div>`;
+}
+
+function renderDatabaseCollections() {
+  const box = $("#databaseCollectionsPanel");
+  if (!box) return;
+  const dbName = state.database.selectedDb || "未选择";
+  $("#databaseTitle").textContent = state.database.selectedCollection ? `${dbName}.${state.database.selectedCollection}` : `${dbName} 数据库`;
+  $("#databaseMeta").textContent = state.database.selectedCollection ? `共 ${state.database.total || 0} 条匹配文档` : "集合概览、存储大小、文档数和索引数";
+  const collections = state.database.collections || [];
+  box.classList.toggle("is-hidden", Boolean(state.database.selectedCollection));
+  box.innerHTML = `<div class="db-table-wrap">
+    <table class="db-table">
+      <thead><tr><th>Collection name</th><th>Documents</th><th>Storage size</th><th>Data size</th><th>Avg. document size</th><th>Indexes</th><th>Total index size</th></tr></thead>
+      <tbody>${collections.length ? collections.map((collection) => `<tr data-open-db="${escapeHtml(dbName)}" data-open-collection="${escapeHtml(collection.name)}">
+        <td><button type="button" data-open-db="${escapeHtml(dbName)}" data-open-collection="${escapeHtml(collection.name)}">${escapeHtml(collection.name)}</button></td>
+        <td>${collection.documents || 0}</td>
+        <td>${formatBytes(collection.storage_size)}</td>
+        <td>${formatBytes(collection.data_size)}</td>
+        <td>${formatBytes(collection.avg_document_size)}</td>
+        <td>${collection.indexes || 0}</td>
+        <td>${formatBytes(collection.total_index_size)}</td>
+      </tr>`).join("") : `<tr><td colspan="7">暂无集合。</td></tr>`}</tbody>
+    </table>
+  </div>`;
+}
+
+function renderDatabaseDocuments() {
+  const box = $("#databaseDocumentsPanel");
+  if (!box) return;
+  box.classList.toggle("is-hidden", !state.database.selectedCollection);
+  if (!state.database.selectedCollection) {
+    box.innerHTML = "";
+    return;
+  }
+  const docs = state.database.documents || [];
+  const skip = state.database.skip || 0;
+  const limit = state.database.limit || 20;
+  box.innerHTML = `${renderDatabaseCollectionHeader()}${renderDatabaseDocumentsPanel(docs, skip, limit)}`;
+}
+
+function renderDatabaseCollectionHeader() {
+  const db = state.database.selectedDb || "";
+  const collection = state.database.selectedCollection || "";
+  return `<div class="db-compass-head">
+    <div class="db-breadcrumb"><span>localhost:27017</span><span>›</span><span>${escapeHtml(db)}</span><span>›</span><strong>${escapeHtml(collection)}</strong></div>
+  </div>`;
+}
+
+function renderDatabaseDocumentsPanel(docs, skip, limit) {
+  return `<div class="db-filter-shell">
+    <label class="db-filter-input"><span>Filter</span><textarea id="dbFilterInput" spellcheck="false" placeholder="{ }">${escapeHtml(state.database.filterText || "{}")}</textarea></label>
+    <div class="db-filter-actions"><button id="dbResetQueryBtn" type="button" data-db-reset ${isDatabaseFilterEmpty() ? "disabled" : ""}>Reset</button><button class="primary" type="button" data-db-query>Find</button></div>
+  </div>
+  <div class="db-doc-actions">
+    <div class="db-left-actions"><button class="primary split" type="button" data-db-add-document>＋ ▾</button><button type="button" class="danger" data-db-clear-documents title="删除全部 data">▣</button></div>
+    <div class="db-page-actions"><select id="dbLimitSelect" title="当前页可滚动查看的数据条数">${[10, 20, 50, 100].map((value) => `<option value="${value}" ${Number(limit) === value ? "selected" : ""}>${value}</option>`).join("")}</select><span>${(state.database.total || 0) ? `${skip + 1} - ${Math.min(skip + limit, state.database.total || 0)} of ${state.database.total || 0}` : "0 - 0 of 0"}</span><button type="button" data-db-query>⟳</button><button type="button" ${skip <= 0 ? "disabled" : ""} data-db-prev>‹</button><button type="button" ${skip + limit >= (state.database.total || 0) ? "disabled" : ""} data-db-next>›</button></div>
+  </div>
+  <div class="db-doc-list ${state.database.viewMode === "json" ? "is-json-view" : ""}">${docs.length ? docs.map((doc) => renderDatabaseDocument(doc)).join("") : emptyTable("当前查询没有文档。")}</div>`;
+}
+
+function isDatabaseFilterEmpty() {
+  const value = String(state.database.filterText || "").trim();
+  return !value || value === "{}";
+}
+
+function renderDatabaseQueryButtons() {
+  const reset = $("#dbResetQueryBtn");
+  if (reset) reset.disabled = isDatabaseFilterEmpty();
+}
+
+function renderDatabaseDocument(doc) {
+  const docId = String(doc._id || "");
+  return `<article class="db-document">
+    <div class="db-document-head"><strong>_id: ${escapeHtml(docId)}</strong><div><button type="button" data-db-edit="${escapeHtml(docId)}">编辑</button><button type="button" class="danger" data-db-delete="${escapeHtml(docId)}">删除</button></div></div>
+    <div class="db-document-tree">${renderDocumentTree(doc)}</div>
+  </article>`;
+}
+
+function renderDocumentTree(value, depth = 0, keyName = "") {
+  if (Array.isArray(value)) {
+    return value.map((item, index) => renderDocumentTreeRow(String(index), item, depth)).join("");
+  }
+  if (value && typeof value === "object") {
+    return Object.entries(value).map(([key, item]) => renderDocumentTreeRow(key, item, depth)).join("");
+  }
+  return `<span class="db-value">${formatTreeValue(value)}</span>`;
+}
+
+function renderDocumentTreeRow(key, value, depth) {
+  const complex = value && typeof value === "object";
+  const type = Array.isArray(value) ? "Array" : complex ? "Object" : "";
+  const summary = Array.isArray(value) ? `[${value.length}]` : complex ? "Object" : formatTreeValue(value);
+  if (!complex) {
+    return `<div class="db-field-row" style="--depth:${depth}"><span class="db-field-spacer"></span><strong>${escapeHtml(key)}</strong><span>:</span><span class="db-value">${summary}</span></div>`;
+  }
+  return `<details class="db-field-group" style="--depth:${depth}">
+    <summary><span class="db-field-caret">▶</span><strong>${escapeHtml(key)}</strong><span>:</span><span class="db-type">${escapeHtml(type)}</span><span class="db-muted">${escapeHtml(summary)}</span></summary>
+    <div class="db-field-children">${renderDocumentTree(value, depth + 1)}</div>
+  </details>`;
+}
+
+function formatTreeValue(value) {
+  if (typeof value === "string") return `<span class="db-string">"${escapeHtml(value)}"</span>`;
+  if (typeof value === "number") return `<span class="db-number">${value}</span>`;
+  if (typeof value === "boolean") return `<span class="db-boolean">${value}</span>`;
+  if (value === null || value === undefined) return `<span class="db-null">null</span>`;
+  return escapeHtml(String(value));
+}
+
+function renderDatabaseIndexes() {
+}
+
+function renderDatabaseIndexesHtml() {}
+
+function formatBytes(value) {
+  const num = Number(value) || 0;
+  if (num < 1024) return `${num} B`;
+  if (num < 1024 * 1024) return `${(num / 1024).toFixed(2)} kB`;
+  return `${(num / 1024 / 1024).toFixed(2)} MB`;
 }
 
 function renderStaticAdminPages() {
@@ -1272,18 +2284,82 @@ function renderItem(item, options = {}) {
     <div class="card-head"><div class="user-head"><span class="avatar">${escapeHtml(getAvatarText(item.screen_name))}</span><div class="user-copy"><strong>${escapeHtml(item.screen_name || "未知用户")}</strong></div></div><div><div class="meta"><span class="platform-chip">${platformLabel(item.platform)}</span><span>${escapeHtml(item.created_at || "")}</span><span>情感：${inferSentiment(item)}</span><span>${inferRiskType(item)}</span></div></div><div class="risk ${scoreLevelClass(score)}"><span>${riskBucket(item)}</span><strong>${Number.isFinite(score) ? score.toFixed(1) : "--"}</strong></div></div>
     <div class="card-actions"><button type="button" class="${watched ? "secondary" : "primary"}" data-watch-toggle="${escapeHtml(docId)}">${watched ? "取消追踪" : "加入追踪"}</button></div>
     <p class="text">${escapeHtml(item.text || "")}</p>
+    ${renderItemPics(item)}
     <div class="reason-list">${reasons.length ? reasons.slice(0, 4).map((reason) => `<span>${escapeHtml(reason)}</span>`).join("") : `<span>${escapeHtml(item.analysis_status || "待分析")}</span>`}</div>
     <a class="report-link" href="/report?id=${encodeURIComponent(docId)}" target="_blank">查看详情</a>
   </article>`;
 }
 
+function renderItemPics(item) {
+  const pics = (item.pics || [])
+    .map((pic) => typeof pic === "string" ? { url: pic, path: pic } : pic)
+    .filter((pic) => pic && pic.url);
+  if (!pics.length) return "";
+  return `<div class="pics">${pics.slice(0, 6).map((pic, index) => `
+    <a href="${escapeHtml(pic.url)}" target="_blank" rel="noreferrer">
+      <img src="${escapeHtml(pic.url)}" alt="${escapeHtml(`post image ${index + 1}`)}" loading="lazy">
+    </a>
+  `).join("")}</div>`;
+}
+
 function renderCompactRows(list) {
-  return list.length ? `<table><thead><tr><th>平台</th><th>内容摘要</th><th>风险等级</th><th>时间</th></tr></thead><tbody>${list.map((item) => `<tr><td>${platformLabel(item.platform)}</td><td>${escapeHtml(shortText(item.text, 80))}</td><td>${riskBucket(item)}</td><td>${escapeHtml(item.created_at || "")}</td></tr>`).join("")}</tbody></table>` : emptyTable("当前暂无高风险舆情。");
+  return list.length ? `<table><thead><tr><th>平台</th><th>内容摘要</th><th>风险等级</th><th>时间</th><th>操作</th></tr></thead><tbody>${list.map((item) => {
+    const docId = itemDocId(item);
+    return `<tr><td>${platformLabel(item.platform)}</td><td>${escapeHtml(shortText(item.text, 80))}</td><td>${riskBucket(item)}</td><td>${escapeHtml(item.created_at || "")}</td><td><a class="table-action-link" href="/report?id=${encodeURIComponent(docId)}" target="_blank">查看详情</a></td></tr>`;
+  }).join("")}</tbody></table>` : emptyTable("当前暂无高风险舆情。");
 }
 
 function renderBars(counts, total) {
   const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
   return entries.length ? entries.map(([label, value]) => `<div class="bar-row"><div class="bar-head"><span>${escapeHtml(label)}</span><strong>${value}</strong></div><div class="bar-track"><div class="bar-fill" style="width:${Math.max(4, value / total * 100)}%"></div></div></div>`).join("") : "<p class='status-empty'>暂无统计数据。</p>";
+}
+
+
+function renderDonutChart(counts) {
+  const entries = Object.entries(counts).filter(([, value]) => value > 0).sort((a, b) => b[1] - a[1]);
+  const total = entries.reduce((sum, [, value]) => sum + value, 0);
+  if (!total) return "<p class='status-empty'>暂无统计数据。</p>";
+  const colors = ["#2f7df6", "#14b889", "#ffb020", "#8b5cf6", "#19b7d6", "#ef5da8", "#64748b"];
+  let offset = 0;
+  const segments = entries.map(([, value], index) => {
+    const percent = value / total * 100;
+    const circle = `<circle class="donut-segment" r="15.9155" cx="18" cy="18" fill="transparent" stroke="${colors[index % colors.length]}" stroke-width="6" stroke-dasharray="${percent} ${100 - percent}" stroke-dashoffset="${-offset}" />`;
+    offset += percent;
+    return circle;
+  }).join("");
+  const legend = entries.map(([label, value], index) => {
+    const percent = Math.round(value / total * 100);
+    return `<div class="chart-legend-row"><span class="legend-dot" style="background:${colors[index % colors.length]}"></span><strong>${escapeHtml(label)}</strong><em>${value} 条</em><span>${percent}%</span></div>`;
+  }).join("");
+  return `<div class="donut-wrap"><svg viewBox="0 0 36 36" class="donut-svg" role="img" aria-label="分布图">${segments}<circle r="10" cx="18" cy="18" fill="#fff"></circle><text x="18" y="17.5" text-anchor="middle" class="donut-total">${total}</text><text x="18" y="22.5" text-anchor="middle" class="donut-unit">条</text></svg><div class="chart-legend">${legend}</div></div>`;
+}
+
+function renderLineChart(points) {
+  if (!points.length) return "<p class='status-empty'>暂无趋势数据。</p>";
+  const width = 760;
+  const height = 260;
+  const padding = { left: 48, right: 22, top: 20, bottom: 42 };
+  const maxValue = Math.max(1, ...points.map((point) => point.value));
+  const xStep = points.length > 1 ? (width - padding.left - padding.right) / (points.length - 1) : 0;
+  const y = (value) => padding.top + (maxValue - value) / maxValue * (height - padding.top - padding.bottom);
+  const pathData = points.map((point, index) => `${index ? "L" : "M"} ${padding.left + index * xStep} ${y(point.value)}`).join(" ");
+  const areaPath = `${pathData} L ${padding.left + (points.length - 1) * xStep} ${height - padding.bottom} L ${padding.left} ${height - padding.bottom} Z`;
+  const grid = [0, 0.25, 0.5, 0.75, 1].map((ratio) => {
+    const value = Math.round(maxValue * (1 - ratio));
+    const gy = padding.top + ratio * (height - padding.top - padding.bottom);
+    return `<g><line x1="${padding.left}" y1="${gy}" x2="${width - padding.right}" y2="${gy}" class="line-grid"></line><text x="${padding.left - 10}" y="${gy + 4}" text-anchor="end" class="line-axis">${value}</text></g>`;
+  }).join("");
+  const dots = points.map((point, index) => {
+    const x = padding.left + index * xStep;
+    const cy = y(point.value);
+    return `<g><circle cx="${x}" cy="${cy}" r="4" class="line-dot"></circle><title>${escapeHtml(point.label)}：${point.value} 条</title></g>`;
+  }).join("");
+  const labels = points.map((point, index) => {
+    if (points.length > 8 && index % 2 === 1) return "";
+    const x = padding.left + index * xStep;
+    return `<text x="${x}" y="${height - 15}" text-anchor="middle" class="line-axis">${escapeHtml(point.shortLabel)}</text>`;
+  }).join("");
+  return `<svg class="line-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="每日新增舆情数据变化"><path d="${areaPath}" class="line-area"></path>${grid}<line x1="${padding.left}" y1="${height - padding.bottom}" x2="${width - padding.right}" y2="${height - padding.bottom}" class="line-base"></line><path d="${pathData}" class="line-path"></path>${dots}${labels}</svg>`;
 }
 
 function countBy(list, picker) {
@@ -1299,8 +2375,46 @@ function countToday(list) {
   return list.filter((item) => String(item.created_at || "").startsWith(today)).length;
 }
 
+function dailyTrend(list, days = 14) {
+  const now = new Date();
+  const dayKeys = Array.from({ length: days }, (_, index) => {
+    const date = new Date(now);
+    date.setHours(0, 0, 0, 0);
+    date.setDate(date.getDate() - (days - 1 - index));
+    const key = date.toISOString().slice(0, 10);
+    return {
+      key,
+      label: `${date.getMonth() + 1}/${date.getDate()}`,
+      shortLabel: `${date.getMonth() + 1}-${date.getDate()}`,
+      value: 0,
+    };
+  });
+  const lookup = Object.fromEntries(dayKeys.map((day) => [day.key, day]));
+  list.forEach((item) => {
+    const key = itemDateKey(item);
+    if (lookup[key]) lookup[key].value += 1;
+  });
+  return dayKeys;
+}
+
+function itemDateKey(item) {
+  const raw = item.created_at || item.time || item.publish_time || item.date || "";
+  const normalized = String(raw).replace(/\./g, "-").replace(/\//g, "-").replace(" ", "T");
+  const parsed = Date.parse(normalized);
+  if (Number.isFinite(parsed)) return new Date(parsed).toISOString().slice(0, 10);
+  const matched = String(raw).match(/\d{4}-\d{1,2}-\d{1,2}/);
+  if (!matched) return "";
+  return matched[0].split("-").map((part, index) => index ? part.padStart(2, "0") : part).join("-");
+}
+
 function riskScore(item) {
-  return Number(item.analysis?.summary?.total_score ?? NaN);
+  return normalizeRiskScore(item.analysis?.summary?.total_score);
+}
+
+function normalizeRiskScore(value) {
+  const score = Number(value);
+  if (!Number.isFinite(score)) return NaN;
+  return score > 0 && score <= 1 ? score * 100 : score;
 }
 
 function riskBucket(item) {
@@ -1374,4 +2488,9 @@ function emptyTable(message) {
 
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[char]));
+}
+
+function cssEscape(value) {
+  if (globalThis.CSS?.escape) return globalThis.CSS.escape(String(value));
+  return String(value).replace(/["\\]/g, "\\$&");
 }
